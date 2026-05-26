@@ -38,12 +38,16 @@ const cspDirectives = [
   `connect-src 'self' ${API_BASE} ws: wss:`,
   "worker-src 'self' blob:",
   "media-src 'self'",
+  // PDF/file preview opens the document inside an <iframe> sourced from a
+  // `blob:` URL (created from the fetched bytes) or directly from R2's
+  // public CDN — both must be allow-listed or CSP blocks the frame.
+  "frame-src 'self' blob: https://pub-cd37168c695c410192705fbc103f02ea.r2.dev",
 ].join('; ')
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
-  ssr: false,
+  ssr: IS_DEV ? true : false,
   modules: ['@pinia/nuxt', '@nuxtjs/tailwindcss'],
   css: ['~/assets/css/main.css'],
   nitro: {

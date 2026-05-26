@@ -73,6 +73,20 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  // Server post-processed the assistant content (eg. leading chain-of-thought
+  // was stripped, or L6 replaced harmful output). Overwrite what we streamed.
+  function setContentOnLast(content) {
+    if (_appendFrame != null) {
+      cancelAnimationFrame(_appendFrame);
+      _appendFrame = null;
+      _pendingAppend = '';
+    }
+    const last = messages.value[messages.value.length - 1];
+    if (last?.role === 'assistant') {
+      last.content = content;
+    }
+  }
+
   // Set image preview on last user message
   function setImageOnLast(imageUrl, imageName) {
     const last = messages.value[messages.value.length - 1];
@@ -149,6 +163,7 @@ export const useChatStore = defineStore('chat', () => {
     removeDocument,
     clearAttachments,
     setThinkingOnLast,
+    setContentOnLast,
     setImageOnLast,
     setUsageOnLast,
     setProviderOnLast,

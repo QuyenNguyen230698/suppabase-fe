@@ -261,6 +261,11 @@ export function useUnifiedChat() {
             chatStore.setThinkingOnLast(event.content)
           } else if (event.type === 'chunk') {
             chatStore.appendToLastAssistant(event.content)
+          } else if (event.type === 'content_replaced' || event.type === 'harmful_output_replaced') {
+            // Server post-processed the assistant content (strip thinking,
+            // replace harmful output, etc.). Overwrite what we streamed.
+            const replacement = event.content ?? event.replacement ?? ''
+            if (replacement) chatStore.setContentOnLast(replacement)
           } else if (event.type === 'provider_fallback') {
             // Cloudflare → PEB fallback announced before any tokens flow.
             showToast?.(fallbackMessage(event.reason), 'info', 4000)

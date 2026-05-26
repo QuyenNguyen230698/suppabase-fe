@@ -133,6 +133,9 @@ export function usePebChat() {
             chatStore.setThinkingOnLast(event.content);
           } else if (event.type === 'chunk') {
             chatStore.appendToLastAssistant(event.content);
+          } else if (event.type === 'content_replaced' || event.type === 'harmful_output_replaced') {
+            const replacement = event.content ?? event.replacement ?? '';
+            if (replacement) chatStore.setContentOnLast(replacement);
           } else if (event.type === 'done') {
             done = true;
             break;
