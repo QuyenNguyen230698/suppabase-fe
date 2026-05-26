@@ -11,7 +11,7 @@
 //
 // Update CSP_INLINE_SCRIPT_SHA whenever that snippet changes:
 //   node -e "console.log(require('crypto').createHash('sha256').update(SCRIPT).digest('base64'))"
-const CSP_INLINE_SCRIPT_SHA = "'sha256-RGRvGx0KaX3mvDCcP2vbdL33RHIPPTYo72o7Txlin6U='"
+const CSP_INLINE_SCRIPT_SHA = "'sha256-HoTJF1J4OyTog2k+rGda0JYK4pxHsEmIOCzFqpJeS/k='"
 const API_BASE = process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:3045'
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
