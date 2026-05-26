@@ -11,13 +11,15 @@
 //
 // Update CSP_INLINE_SCRIPT_SHA whenever that snippet changes:
 //   node -e "console.log(require('crypto').createHash('sha256').update(SCRIPT).digest('base64'))"
-const CSP_INLINE_SCRIPT_SHA = "'sha256-HoTJF1J4OyTog2k+rGda0JYK4pxHsEmIOCzFqpJeS/k='"
 const API_BASE = process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:3045'
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
+// SPA mode: Nuxt injects several inline scripts at runtime whose hashes are
+// unpredictable per build, so we cannot pin by sha256. 'unsafe-inline' is
+// acceptable for a fully client-rendered SPA with no SSR secrets.
 const scriptSrc = IS_DEV
-  ? `'self' 'unsafe-inline' 'unsafe-eval'`              // Vite HMR needs both
-  : `'self' ${CSP_INLINE_SCRIPT_SHA}`
+  ? `'self' 'unsafe-inline' 'unsafe-eval'`
+  : `'self' 'unsafe-inline'`
 
 const cspDirectives = [
   "default-src 'self'",
