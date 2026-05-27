@@ -32,7 +32,8 @@ export function useChat() {
     abortController = new AbortController();
 
     try {
-      const res = await fetch(`${config.public.apiBase}/api/chat`, {
+      // Step 1: POST to enqueue job, get job_id back immediately
+      const enqRes = await fetch(`${config.public.apiBase}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -47,12 +48,30 @@ export function useChat() {
         signal: abortController.signal,
       });
 
-      if (!res.ok) {
-        if (res.status === 401) { auth.logout(); return; }
-        throw new Error(`HTTP ${res.status}`);
+      if (!enqRes.ok) {
+        if (enqRes.status === 401) { auth.logout(); return; }
+        const errBody = await enqRes.json().catch(() => ({}));
+        throw new Error(errBody.error || `HTTP ${enqRes.status}`);
       }
 
-      return await consumeSSE(res, conversationId);
+      const { job_id, queued } = await enqRes.json();
+
+      // Non-streaming response (stream=false) — job_id will be absent
+      if (!queued || !job_id) {
+        return conversationId;
+      }
+
+      // Step 2: Open SSE stream for the queued job
+      const streamRes = await fetch(`${config.public.apiBase}/api/chat/stream/${job_id}`, {
+        headers: { Authorization: `Bearer ${auth.getToken()}` },
+        signal: abortController.signal,
+      });
+
+      if (!streamRes.ok) {
+        throw new Error(`Stream open failed: HTTP ${streamRes.status}`);
+      }
+
+      return await consumeSSE(streamRes, conversationId);
     } catch (err) {
       if (err.name !== 'AbortError') {
         chatStore.appendToLastAssistant(`\n\n[Error: ${err.message}]`);
@@ -160,7 +179,12 @@ export function useChat() {
         const raw = line.slice(6);
         try {
           const event = JSON.parse(raw);
-          if (event.type === 'conversation_id') {
+          if (event.type === 'queue_position') {
+            const pos = event.position;
+            chatStore.setThinkingOnLast(pos > 1
+              ? `Đang chờ trong hàng đợi... (vị trí #${pos})`
+              : 'Đang xử lý...');
+          } else if (event.type === 'conversation_id') {
             newConvId = event.conversation_id;
             chatStore.activeConversationId = newConvId;
           } else if (event.type === 'thinking') {
