@@ -86,7 +86,8 @@ export function useUnifiedChat() {
         ...(agentTemplateId && { agent_template_id: agentTemplateId }),
       }
 
-      const res = await fetch(`${config.public.apiBase}${endpointFor(source)}`, {
+      const endpoint = endpointFor(source)
+      const enqRes = await fetch(`${config.public.apiBase}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,34 +97,49 @@ export function useUnifiedChat() {
         signal: abortController.signal,
       })
 
-      if (!res.ok) {
-        if (res.status === 401) { auth.logout(); return }
-        if (res.status === 403) {
-          const body = await res.json().catch(() => ({}))
-          if (body?.code === 'ERR_PERMISSION_DENIED') {
+      if (!enqRes.ok) {
+        if (enqRes.status === 401) { auth.logout(); return }
+        if (enqRes.status === 403) {
+          const errBody = await enqRes.json().catch(() => ({}))
+          if (errBody?.code === 'ERR_PERMISSION_DENIED') {
             chatStore.markLastAssistantError('permission', '')
             return
           }
         }
-        if (res.status === 422) {
-          const body = await res.json().catch(() => ({}))
-          if (body?.code === 'ERR_GUARDRAIL_BLOCKED') {
-            chatStore.markLastAssistantError('blocked', body.error || 'Yêu cầu không được phép.')
+        if (enqRes.status === 422) {
+          const errBody = await enqRes.json().catch(() => ({}))
+          if (errBody?.code === 'ERR_GUARDRAIL_BLOCKED') {
+            chatStore.markLastAssistantError('blocked', errBody.error || 'Yêu cầu không được phép.')
             return
           }
         }
-        if (res.status === 429) {
-          // CF quota exhausted (rolling 24h). Surface as a dedicated 'quota'
-          // state so the bubble can show a countdown + PEB upsell instead of
-          // a generic "Connection lost" message.
-          const body = await res.json().catch(() => ({}))
-          chatStore.markLastAssistantError('quota', JSON.stringify(body || {}))
+        if (enqRes.status === 429) {
+          const errBody = await enqRes.json().catch(() => ({}))
+          chatStore.markLastAssistantError('quota', JSON.stringify(errBody || {}))
           return
         }
-        throw new Error(`HTTP ${res.status}`)
+        throw new Error(`HTTP ${enqRes.status}`)
       }
 
-      return await consumeSSE(res, conversationId)
+      // /api/chat returns { job_id, queued: true } — open SSE stream separately.
+      // /api/chat/peb streams directly, so fall through to consumeSSE in that case.
+      if (source !== 'pro') {
+        const enqData = await enqRes.json()
+        console.log('[useUnifiedChat] enqueue response:', enqData)
+        const { job_id, queued } = enqData
+        if (!queued || !job_id) return conversationId
+
+        console.log('[useUnifiedChat] opening SSE stream for job:', job_id)
+        const streamRes = await fetch(`${config.public.apiBase}/api/chat/stream/${job_id}`, {
+          headers: { Authorization: `Bearer ${auth.getToken()}` },
+          signal: abortController.signal,
+        })
+        console.log('[useUnifiedChat] streamRes status:', streamRes.status)
+        if (!streamRes.ok) throw new Error(`Stream open failed: HTTP ${streamRes.status}`)
+        return await consumeSSE(streamRes, conversationId)
+      }
+
+      return await consumeSSE(enqRes, conversationId)
     } catch (err) {
       if (err.name === 'AbortError') {
         chatStore.markLastAssistantError('cancelled', '')

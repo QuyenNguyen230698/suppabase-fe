@@ -376,9 +376,25 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+// Strip any <think>...</think> blocks that leaked into content (inline CoT
+// from DeepSeek-R1 / Qwen models that the backend didn't fully split yet).
+// The full closed block is moved to message.thinking if not already set.
+function stripThinkTags(content, message) {
+  if (!content || !content.includes('<think>')) return content
+  // Replace closed blocks
+  let stripped = content.replace(/<think>([\s\S]*?)<\/think>/g, (_, inner) => {
+    if (!message.thinking) message.thinking = inner.trim()
+    return ''
+  })
+  // Hide an open (still-streaming) <think> block — remove from visible content
+  stripped = stripped.replace(/<think>[\s\S]*$/, '')
+  return stripped.trimStart()
+}
+
 const renderedContent = computed(() => {
-  const content = props.message.content
-  if (!content) return ''
+  const raw = props.message.content
+  if (!raw) return ''
+  const content = stripThinkTags(raw, props.message)
 
   // Final / non-streaming case — full parse, no incremental optimisation.
   if (!(props.isStreaming && props.isLast)) {

@@ -27,6 +27,7 @@ const ADMIN_ONLY_PREFIXES = ['/admin/'];
 // 'partial' means scoped access (own BU/country) — the page itself enforces data boundaries.
 const PERMISSION_GATED_PATHS = new Map<string, string>([
   ['/permissions', 'permissions'],
+  ['/catalogue', 'catalogue'],
 ]);
 
 const DEV_ONLY_PREFIXES  = ['/design', '/design-builder'];
@@ -83,7 +84,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const gatedModule = getPermissionGatedModule(to.path);
   if (gatedModule !== null) {
     // Permissions must be loaded before we can check — fetchPermissions() was called above.
-    const state = auth.permissions?.[gatedModule]?.view;
+    const modulePerms = auth.permissions?.[gatedModule];
+    // Grace period: if the BE hasn't provisioned this module yet (no row in the
+    // permission set at all), allow any logged-in user rather than hard-blocking.
+    // Once the module exists, enforce the normal full/partial view check.
+    if (modulePerms === undefined) return;
+    const state = modulePerms?.view;
     if (state !== 'full' && state !== 'partial') {
       return navigateTo({ path: '/permission-error', query: { from: to.path } });
     }

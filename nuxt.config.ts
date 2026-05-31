@@ -41,7 +41,8 @@ const cspDirectives = [
   // PDF/file preview opens the document inside an <iframe> sourced from a
   // `blob:` URL (created from the fetched bytes) or directly from R2's
   // public CDN — both must be allow-listed or CSP blocks the frame.
-  "frame-src 'self' blob: https://pub-cd37168c695c410192705fbc103f02ea.r2.dev",
+  // YouTube embed is used by the /catalogue intro video; allow its frame host.
+  "frame-src 'self' blob: https://pub-cd37168c695c410192705fbc103f02ea.r2.dev https://www.youtube.com https://www.youtube-nocookie.com",
 ].join('; ')
 
 export default defineNuxtConfig({

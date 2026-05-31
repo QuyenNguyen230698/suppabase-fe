@@ -7,6 +7,7 @@ const MODULE_META = {
   chat:        { section: 'workspace', routeOverride: '/c' },
   pro_plan:    { section: 'workspace', routeOverride: '/c?model=peb' },
   documents:   { section: 'workspace' },
+  catalogue:   { section: 'workspace', routeOverride: '/catalogue' },
   api_tokens:  { section: 'system' },
   permissions: { section: 'system', adminOnly: true },
   agent_templates: { section: 'system', adminOnly: true },
