@@ -101,16 +101,12 @@
               @open-artifact="openArtifactFromMessage(msg)"
             />
 
+            <!-- Bottom spacer — gives the last turn enough room below it that
+                 the just-sent user message can scroll up near the top of the
+                 viewport (Claude/ChatGPT behaviour) even when the reply is
+                 still short. Height set dynamically after each send. -->
+            <div v-if="chatStore.messages.length" class="thread-spacer" :style="{ height: spacerHeight + 'px' }"></div>
           </div>
-
-          <!-- Floating "Jump to latest" — appears when the user has scrolled
-               up while a reply is still streaming, so they can resume
-               following without forcing the camera to chase them. -->
-          <button v-if="showJumpToLatest" class="jump-to-latest" @click="jumpToLatest" :title="t('chat.jumpToLatest') || 'Jump to latest'">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>
-            </svg>
-          </button>
         </div>
 
         <!-- Artifact panel -->
@@ -147,6 +143,16 @@
            @dragover.prevent="dragOver = true"
            @dragleave.prevent="dragOver = false"
            @drop.prevent="onDrop">
+        <!-- "Jump to latest" — pinned just above the composer. Shows once the
+             user scrolls up ≥ 60px from the newest message; click smooth-scrolls
+             back to the bottom, then hides itself when it lands. -->
+        <Transition name="jump-fade">
+          <button v-if="showJumpToLatest" class="jump-to-latest" @click="jumpToLatest" :title="t('chat.jumpToLatest') || 'Jump to latest'">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>
+            </svg>
+          </button>
+        </Transition>
         <div v-if="dragOver" class="composer-drop-hint">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Drop code files to attach as snippets
@@ -539,10 +545,11 @@ async function loadConversation(id) {
   }
   try {
     const data = await apiFetch(endpoint, { _skipLoader: true })
+    spacerHeight.value = 0   // loading history, not a fresh send → no anchor gap
     chatStore.setActiveConversation(id, data.messages)
     if (data.model && currentSource.value !== 'pro') selectedModel.value = data.model
     if (conv?.source === 'pro') selectedModel.value = PEB_MODEL_VALUE
-    scrollToBottom()
+    scrollToBottom(true)
   } catch {
   } finally {
     convSwitching.value = false
@@ -705,6 +712,7 @@ async function send() {
     chatStore.clearAttachments()
     clearCodeAttachments()
     nextTick(() => autoResize())
+    pendingAnchor.value = true   // anchor the new user message to the top
     const newId = await unifiedVision({
       imageFile: file, prompt,
       model: currentModel.value,
@@ -713,6 +721,7 @@ async function send() {
       agentTemplateId: selectedAgentId.value,
     })
     if (newId && newId !== prevConvId) { await loadConversationList(); router.replace(`/c/${newId}`) }
+    else if (newId) chatStore.bumpConversation(newId)
     scrollToBottom()
     return
   }
@@ -743,6 +752,7 @@ async function send() {
   pasteSuggestion.value = null
   if (textareaEl.value) { textareaEl.value.value = ''; textareaEl.value.style.height = 'auto'; textareaEl.value.focus() }
 
+  pendingAnchor.value = true   // anchor the new user message to the top
   const newId = await unifiedSend({
     content: text,
     model: currentModel.value,
@@ -751,6 +761,7 @@ async function send() {
     agentTemplateId: selectedAgentId.value,
   })
   if (newId && newId !== prevConvId) { await loadConversationList(); router.replace(`/c/${newId}`) }
+  else if (newId) chatStore.bumpConversation(newId)
   scrollToBottom()
 }
 
@@ -767,6 +778,7 @@ async function retryLastMessage() {
     agentTemplateId: selectedAgentId.value,
   })
   if (newId && newId !== chatStore.activeConversationId) await loadConversationList()
+  else if (newId) chatStore.bumpConversation(newId)
   scrollToBottom()
 }
 
@@ -1025,20 +1037,38 @@ function autoResize() {
 }
 
 // Sticky auto-scroll: only follow the bottom when the user IS at the bottom
-// (within ~120px). Once they scroll up to read, we stop chasing the stream
-// and show a floating "↓ Jump to latest" button so they can re-anchor when
-// ready. Matches the UX in Claude.ai / ChatGPT — keeps the page calm while
-// reading older replies and prevents the camera-shake feeling on every chunk.
+// (within STICKY_THRESHOLD_PX). Once they scroll up to read, we stop chasing
+// the stream and show a "↓ jump to latest" button (pinned above the composer)
+// so they can re-anchor when ready. Matches the UX in Claude.ai / ChatGPT —
+// keeps the page calm while reading older replies and prevents the camera-shake
+// feeling on every chunk.
+//
+// Used for the "am I still anchored to the bottom?" auto-follow decision.
 const STICKY_THRESHOLD_PX = 120
+// The button appears as soon as the user nudges up ≥ this much from the newest
+// message — intentionally small so it surfaces quickly.
+const SHOW_BUTTON_AFTER_PX = 60
 const isAtBottom = ref(true)
 const showJumpToLatest = ref(false)
+// True while a click-driven smooth scroll is in flight. We keep the button
+// visible during the animation and only hide it once we actually land at the
+// bottom (so it doesn't blink away the instant the user clicks).
+const jumping = ref(false)
 
 function recomputeStick() {
   const el = messagesEl.value
   if (!el) return
   const gap = el.scrollHeight - el.scrollTop - el.clientHeight
   isAtBottom.value = gap <= STICKY_THRESHOLD_PX
-  showJumpToLatest.value = !isAtBottom.value && chatStore.isStreaming
+  // While a smooth "jump" is animating, leave the button as-is until we reach
+  // the bottom — then clear the jumping flag and let it hide.
+  if (jumping.value) {
+    if (gap <= 4) { jumping.value = false; showJumpToLatest.value = false }
+    return
+  }
+  // Show whenever the user has scrolled up ≥ 60px from the newest message and
+  // there's actually content to scroll back down to.
+  showJumpToLatest.value = gap > SHOW_BUTTON_AFTER_PX && chatStore.messages.length > 0
 }
 
 function scrollToBottom(force = false) {
@@ -1049,13 +1079,28 @@ function scrollToBottom(force = false) {
     // force=true (used when explicitly clicking "jump to latest").
     if (!force && !isAtBottom.value) return
     el.scrollTop = el.scrollHeight
+    // Programmatic scrolls don't always fire a scroll event (e.g. when already
+    // at the bottom), so refresh the button state explicitly. Prevents a stale
+    // "jump to latest" from lingering after switching conversations.
+    recomputeStick()
   })
 }
 
 function jumpToLatest() {
+  const el = messagesEl.value
+  if (!el) return
   isAtBottom.value = true
-  showJumpToLatest.value = false
-  scrollToBottom(true)
+  // Keep the button on screen and smooth-scroll to the bottom; recomputeStick()
+  // (fired by the scroll events the animation produces) hides it once we land.
+  jumping.value = true
+  el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  // Safety net: if no scroll event arrives (content already near bottom / reduced
+  // motion), force the state after a short delay.
+  setTimeout(() => {
+    if (!jumping.value) return
+    jumping.value = false
+    recomputeStick()
+  }, 600)
 }
 
 onMounted(() => {
@@ -1067,17 +1112,69 @@ onBeforeUnmount(() => {
   if (el) el.removeEventListener('scroll', recomputeStick)
 })
 
-// New message — start fresh at the bottom (user just sent something) so we
-// reset stickiness.
+// Extra room rendered below the last turn so the freshly-sent user message can
+// sit near the top of the viewport while the reply streams in underneath.
+const spacerHeight = ref(0)
+// Distance from the top of the scroll viewport at which we park the just-sent
+// user message (a little breathing room under the topbar).
+const ANCHOR_TOP_PX = 24
+
+// Scroll so the last user message's top lines up near the top of the viewport,
+// ChatGPT/Claude-style. Sizes the bottom spacer first so there's always enough
+// scrollable height to push that message up, even when the reply is still tiny.
+function anchorLastUserMessage() {
+  nextTick(() => {
+    const el = messagesEl.value
+    if (!el) return
+    const userRows = el.querySelectorAll('.msg[data-role="user"]')
+    const lastUser = userRows[userRows.length - 1]
+    if (!lastUser) { scrollToBottom(true); return }
+
+    // Room needed below the user message = viewport height minus the user
+    // message's own height, so it can travel all the way to ANCHOR_TOP_PX.
+    const needed = el.clientHeight - lastUser.offsetHeight - ANCHOR_TOP_PX
+    spacerHeight.value = Math.max(0, needed)
+
+    // Apply the spacer, then scroll the user message to the top. We're now
+    // parked near the top (far from the bottom), so DON'T force isAtBottom —
+    // let recomputeStick decide. This stops the stream auto-follow from yanking
+    // the view back down and undoing the anchor; the reply simply fills the
+    // empty space below the user message.
+    nextTick(() => {
+      const target = Math.max(0, lastUser.offsetTop - ANCHOR_TOP_PX)
+      el.scrollTo({ top: target, behavior: 'smooth' })
+      recomputeStick()
+    })
+  })
+}
+
+// Set just before a send so the next messages.length change anchors the new
+// user message to the top instead of sticking to the bottom. Cleared once the
+// anchor runs, so loading a conversation's history (which also grows
+// messages.length) keeps the normal "scroll to bottom" behaviour.
+const pendingAnchor = ref(false)
+
 watch(() => chatStore.messages.length, () => {
-  isAtBottom.value = true
-  scrollToBottom(true)
+  const msgs = chatStore.messages
+  if (pendingAnchor.value) {
+    // sendMessage() pushes the user bubble then the empty assistant
+    // placeholder — two length changes. Re-anchor on both so the placeholder
+    // appearing doesn't snap us back to the bottom. Release the flag only once
+    // the placeholder is in place.
+    anchorLastUserMessage()
+    if (msgs[msgs.length - 1]?.role === 'assistant') pendingAnchor.value = false
+  } else {
+    isAtBottom.value = true
+    scrollToBottom(true)
+  }
 })
-// Stream finished — gently nudge to bottom IF the user is still anchored there.
+// Stream finished — drop the bottom spacer back to 0 so a long reply doesn't
+// leave a big empty gap at the end of the thread. Don't yank the scroll
+// position; just refresh the jump-button state.
 watch(() => chatStore.isStreaming, v => {
   if (!v) {
-    showJumpToLatest.value = false
-    scrollToBottom(false)
+    spacerHeight.value = 0
+    nextTick(recomputeStick)
   }
 })
 // During streaming, the assistant message's content grows but messages.length
@@ -1230,15 +1327,15 @@ useShortcuts({
    with this duration. */
 .thread[data-switching="true"] { opacity: 0; }
 
-/* Floating "Jump to latest" button — appears while streaming if user
-   scrolled up. Positioned inside .thread (relative) so it follows the
-   scroll viewport, not the document. */
+/* "Jump to latest" button — pinned just above the composer, centred over it.
+   .composer-wrap is position:relative, so this floats right on top of the input
+   without overlapping chat content. */
 .jump-to-latest {
   position: absolute;
-  bottom: 18px;
+  bottom: calc(100% + 20px);
   left: 50%;
   transform: translateX(-50%);
-  width: 32px; height: 32px;
+  width: 34px; height: 34px;
   border-radius: 50%;
   border: 1px solid var(--line-2);
   background: var(--bg-2, #15151a);
@@ -1246,18 +1343,35 @@ useShortcuts({
   display: grid; place-items: center;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0,0,0,0.45);
-  z-index: 10;
+  z-index: 20;
   transition: background 120ms, transform 120ms;
 }
 .jump-to-latest:hover {
   background: rgba(255,255,255,0.08);
   transform: translateX(-50%) translateY(-2px);
 }
+
+/* Fade + slide for the jump button mount/unmount. */
+.jump-fade-enter-active,
+.jump-fade-leave-active {
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.jump-fade-enter-from,
+.jump-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(6px);
+}
 .thread-inner {
   max-width: 760px;
   margin: 0 auto;
   padding: 24px 24px 0;
 }
+
+/* Dynamic bottom spacer — created on send so the just-sent user message can
+   scroll up near the top while the reply streams in. Collapses to 0 when the
+   stream ends. Height is set inline from JS (no transition: animating it would
+   fight the smooth scroll). */
+.thread-spacer { pointer-events: none; }
 
 /* Empty state */
 .empty {

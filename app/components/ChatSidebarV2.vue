@@ -235,6 +235,11 @@ const visibleConversations = computed(() =>
 const pinned = computed(() => visibleConversations.value.filter(c => c.pinned))
 const archived = computed(() => (props.conversations || []).filter(c => c.archived))
 
+const convTime = (c) => {
+  const ts = c.last_message_at || c.updated_at
+  return ts ? new Date(ts).getTime() : 0
+}
+
 const groups = computed(() => {
   const now = new Date()
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
@@ -244,13 +249,17 @@ const groups = computed(() => {
   const buckets = { today: [], yesterday: [], prev7: [], older: [] }
   for (const c of visibleConversations.value) {
     if (c.pinned) continue
-    const ts = c.last_message_at || c.updated_at
-    const tt = ts ? new Date(ts).getTime() : 0
+    const tt = convTime(c)
     if (tt >= todayStart) buckets.today.push(c)
     else if (tt >= yesterdayStart) buckets.yesterday.push(c)
     else if (tt >= sevenDaysStart) buckets.prev7.push(c)
     else buckets.older.push(c)
   }
+
+  // Within each bucket, most-recently-active first — so the chat you just sent
+  // a message in jumps to the top (Claude-style), regardless of the order the
+  // API returned the list in.
+  for (const k in buckets) buckets[k].sort((a, b) => convTime(b) - convTime(a))
 
   return [
     [t('chat.groups.today'),         buckets.today],

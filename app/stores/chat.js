@@ -12,6 +12,20 @@ export const useChatStore = defineStore('chat', () => {
     conversations.value = list;
   }
 
+  // Bump a conversation to the top of the sidebar after a new turn lands in it.
+  // Mirrors Claude/ChatGPT: the chat you just talked in jumps to the top of its
+  // time bucket. We refresh `last_message_at` (what the sidebar sorts on) and
+  // splice the row to the front of the array so the reorder is instant — no
+  // round-trip to /api/conversations needed.
+  function bumpConversation(id, ts) {
+    if (!id) return;
+    const idx = conversations.value.findIndex(c => c.id === id);
+    if (idx === -1) return;
+    const conv = { ...conversations.value[idx], last_message_at: ts || new Date().toISOString() };
+    conversations.value.splice(idx, 1);
+    conversations.value.unshift(conv);
+  }
+
   function setActiveConversation(id, msgs) {
     activeConversationId.value = id;
     // Map DB id → id_persisted so message-level actions (rating) can target it.
@@ -155,6 +169,7 @@ export const useChatStore = defineStore('chat', () => {
     selectedModel,
     attachedDocuments,
     setConversations,
+    bumpConversation,
     setActiveConversation,
     addMessage,
     appendToLastAssistant,
