@@ -1,12 +1,14 @@
 <template>
   <div class="model-selector" ref="root">
-    <button class="model-selector-btn" @click="open = !open" :title="selectedLabel">
+    <button class="model-selector-btn" :class="{ locked: disabled }" @click="onToggle"
+            :title="disabled ? (lockedHint || 'Model locked by agent') : selectedLabel" :disabled="disabled">
       <span class="dot" :class="{ pro: selectedKind === 'pro' }"></span>
       {{ shortSelectedLabel }}
-      <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      <svg v-if="disabled" class="lock-ico" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      <svg v-else class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
     </button>
 
-    <div v-if="open" class="model-selector-menu">
+    <div v-if="open && !disabled" class="model-selector-menu">
       <button
         v-for="m in models"
         :key="m.name"
@@ -28,11 +30,21 @@
 </template>
 
 <script setup>
-const props = defineProps({ modelValue: String, models: Array })
+const props = defineProps({
+  modelValue: String,
+  models: Array,
+  disabled: { type: Boolean, default: false },   // locked by an agent's pinned model
+  lockedHint: { type: String, default: '' },
+})
 const emit = defineEmits(['update:modelValue'])
 
 const open = ref(false)
 const root = ref(null)
+
+function onToggle() {
+  if (props.disabled) return
+  open.value = !open.value
+}
 
 const selectedModel = computed(() => props.models?.find(m => m.name === props.modelValue))
 const selectedLabel = computed(() => selectedModel.value?.label || selectedModel.value?.name || props.modelValue)
@@ -109,6 +121,9 @@ function onOutside(e) {
   box-shadow: 0 0 8px #ffb84d;
 }
 .chev { color: var(--fg-faint); }
+.lock-ico { color: var(--fg-faint); flex-shrink: 0; }
+.model-selector-btn.locked { opacity: 0.7; cursor: not-allowed; }
+.model-selector-btn.locked:hover { border-color: var(--line); background: transparent; color: var(--fg-dim); }
 
 .model-selector-menu {
   position: absolute;

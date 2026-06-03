@@ -63,19 +63,22 @@ onBeforeUnmount(()  => {
 <style scoped>
 .ds-modal-backdrop {
   position: fixed; inset: 0;
-  background: rgba(5, 5, 7, 0.65);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.40);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
   padding: 16px;
 }
 
 .ds-modal {
-  background: var(--bg-elev);
-  border: 1px solid var(--line-2);
-  border-radius: 16px;
+  background: var(--glass-bg-pop);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-3xl);
   width: 100%;
-  box-shadow: 0 24px 60px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-island-lg);
   display: flex; flex-direction: column;
   max-height: calc(100vh - 48px);
   overflow: hidden;

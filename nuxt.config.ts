@@ -103,7 +103,7 @@ export default defineNuxtConfig({
 (function(){
   try {
     function ck(n){var m=document.cookie.split('; ').find(function(c){return c.indexOf(n+'=')===0});return m?decodeURIComponent(m.split('=')[1]):null}
-    var t=ck('sb_theme')||'system';
+    var t=ck('sb_theme')||'light';
     var d=ck('sb_density')||'comfortable';
     var m=ck('sb_motion')||'system';
     var dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;

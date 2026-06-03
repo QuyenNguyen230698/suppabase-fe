@@ -395,9 +395,11 @@ onMounted(load)
 /* Instructions */
 .pd-section textarea {
   width: 100%;
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-2xl);
   padding: 12px 14px;
   color: var(--fg);
   font-family: var(--font-mono);

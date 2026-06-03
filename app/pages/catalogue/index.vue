@@ -409,14 +409,14 @@ watch(activeId, () => { turned.value = 0; closePopup() })
 
 /* Material detail popup */
 .mat-bg { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 24px; }
-.mat-modal { position: relative; width: 100%; max-width: 880px; max-height: 92dvh; overflow: auto; background: var(--bg-elev); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: 0 40px 100px rgba(0,0,0,.55); }
+.mat-modal { position: relative; width: 100%; max-width: 880px; max-height: 92dvh; overflow: auto; background: var(--glass-bg-pop); -webkit-backdrop-filter: blur(28px) saturate(180%); backdrop-filter: blur(28px) saturate(180%); border: 1px solid var(--glass-border); border-radius: var(--radius-3xl); box-shadow: var(--shadow-island-lg); }
 .mat-close { position: absolute; top: 14px; right: 14px; z-index: 3; width: 36px; height: 36px; border-radius: 8px; background: var(--bg-elev); border: 1px solid var(--line-2); color: var(--fg); display: grid; place-items: center; cursor: pointer; transition: background .12s; }
 .mat-close:hover { background: var(--bg-elev-2); }
 /* Gallery / info / actions live in <MaterialPopupView>. */
 
 /* Drawer */
 .drawer-bg { position: fixed; inset: 0; z-index: 110; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 111; width: min(384px, 90vw); background: var(--bg-elev); border-left: 1px solid var(--line-2); box-shadow: -12px 0 40px rgba(0,0,0,.4); display: flex; flex-direction: column; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 111; width: min(384px, 90vw); background: var(--glass-bg-pop); -webkit-backdrop-filter: blur(28px) saturate(180%); backdrop-filter: blur(28px) saturate(180%); border-left: 1px solid var(--glass-border); box-shadow: -12px 0 40px rgba(15,23,42,.18); display: flex; flex-direction: column; }
 .drawer-head { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 22px 18px; border-bottom: 1px solid var(--line); }
 .drawer-label { display: block; margin-bottom: 6px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--fg-faint); }
 .drawer-heading { font-family: var(--font-serif); font-size: 22px; line-height: 1; }

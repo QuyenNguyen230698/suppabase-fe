@@ -217,7 +217,7 @@ async function handleLogin() {
   display: grid;
   grid-template-columns: 1.05fr 1fr;
   min-height: 100vh;
-  background: var(--bg);
+  background: transparent;   /* để lộ mesh gradient của body */
   color: var(--fg);
   font-family: var(--font-sans);
   font-size: 14px;
@@ -301,15 +301,17 @@ async function handleLogin() {
 
 .inp-wrap {
   display: flex; align-items: center;
-  background: var(--bg-elev);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
   border: 1px solid var(--line-2);
-  border-radius: 9px; height: 42px;
-  transition: border-color .14s, background .14s, box-shadow .14s;
+  border-radius: var(--radius-2xl); height: 44px;
+  transition: border-color .15s, background .15s, box-shadow .2s;
 }
 .inp-wrap:focus-within {
   border-color: color-mix(in oklab, var(--accent) 50%, transparent);
-  background: var(--bg-elev-2);
-  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 12%, transparent);
+  background: var(--bg-elev);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 15%, transparent);
 }
 .inp-wrap.invalid {
   border-color: color-mix(in oklab, var(--danger) 60%, transparent);
@@ -394,12 +396,13 @@ async function handleLogin() {
 /* Submit */
 .submit {
   appearance: none; border: 0;
-  width: 100%; height: 44px; border-radius: 10px;
+  width: 100%; height: 44px; border-radius: 999px;
   background: var(--accent); color: var(--accent-fg);
-  font-weight: 500; font-size: 14px; font-family: inherit;
+  font-weight: 600; font-size: 14px; font-family: inherit;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   cursor: pointer;
-  transition: background .14s, transform .12s, opacity .15s;
+  box-shadow: var(--shadow-pill);
+  transition: background .15s, transform .12s var(--spring), opacity .15s;
   margin-top: 4px;
 }
 .submit:hover { background: color-mix(in oklab, var(--accent) 92%, white); }

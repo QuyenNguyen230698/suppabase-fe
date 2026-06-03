@@ -1855,9 +1855,11 @@ function onModulesChanged(activeModules) {
 }
 .drawer {
   width: min(820px, 90vw);
-  background: var(--bg-elev);
-  border-left: 1px solid var(--line);
-  box-shadow: -24px 0 80px rgba(0,0,0,0.3);
+  background: var(--glass-bg-pop);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border-left: 1px solid var(--glass-border);
+  box-shadow: -24px 0 80px rgba(15,23,42,0.18);
   display: flex; flex-direction: column;
   overflow: hidden;
 }

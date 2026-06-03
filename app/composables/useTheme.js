@@ -45,10 +45,10 @@ function writeCookie(name, value) {
 
 function ensureInitialized() {
   if (initialized || typeof window === 'undefined') return
-  theme.value   = readCookie('sb_theme', 'system')
+  theme.value   = readCookie('sb_theme', 'light')
   density.value = readCookie('sb_density', 'comfortable')
   motion.value  = readCookie('sb_motion', 'system')
-  if (!SUPPORTED_THEMES.includes(theme.value))    theme.value   = 'system'
+  if (!SUPPORTED_THEMES.includes(theme.value))    theme.value   = 'light'
   if (!SUPPORTED_DENSITY.includes(density.value)) density.value = 'comfortable'
   if (!SUPPORTED_MOTION.includes(motion.value))   motion.value  = 'system'
 

@@ -144,20 +144,23 @@ onMounted(load)
 
 .proj-card {
   display: flex; flex-direction: column;
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-3xl);
+  box-shadow: var(--shadow-card);
   padding: 18px 18px 16px;
   text-decoration: none;
   color: var(--fg);
-  transition: border-color .12s, transform .12s, background .12s;
+  transition: border-color .15s, transform .2s var(--spring), box-shadow .2s, background .15s;
   position: relative;
   min-height: 154px;
 }
 .proj-card:hover {
-  border-color: var(--line-3);
-  transform: translateY(-1px);
-  background: rgba(255,255,255,0.025);
+  border-color: color-mix(in oklab, var(--accent) 30%, var(--glass-border));
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-island);
 }
 .proj-card.archived { opacity: 0.55; }
 

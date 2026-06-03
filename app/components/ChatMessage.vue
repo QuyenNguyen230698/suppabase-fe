@@ -698,10 +698,13 @@ async function rate(value) {
 
 /* User bubble */
 .user-bubble {
-  background: var(--bg-elev);
-  border: 1px solid var(--line-2);
-  padding: 10px 14px;
-  border-radius: 16px 16px 4px 16px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  padding: 11px 15px;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 6px var(--radius-2xl);
+  box-shadow: var(--shadow-card);
 }
 .user-bubble p { margin: 0; }
 

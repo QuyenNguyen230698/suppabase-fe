@@ -258,11 +258,13 @@
               <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
             </button>
 
-            <!-- Model selector -->
-            <ModelSelector v-model="selectedModel" :models="modelOptions" />
+            <!-- Model selector — locked when the chosen agent pins a model -->
+            <ModelSelector v-model="selectedModel" :models="modelOptions"
+                           :disabled="!!lockedModel"
+                           :locked-hint="lockedModel ? `Model khoá bởi trợ lý: ${lockedModelLabel}` : ''" />
 
             <!-- Agent template picker -->
-            <AgentPicker v-model="selectedAgentId" :disabled="chatStore.isStreaming" />
+            <AgentPicker v-model="selectedAgentId" :disabled="chatStore.isStreaming" @change="onAgentChange" />
 
             <span v-if="input.length >= CHAR_WARN" class="char-counter" :class="{ danger: input.length >= MAX_CHARS }">
               {{ input.length.toLocaleString() }} / {{ MAX_CHARS.toLocaleString() }}
@@ -316,6 +318,19 @@ const input = ref('')
 const models = ref([])
 const selectedModel = ref('')
 const selectedAgentId = ref(null)
+// When the chosen agent pins a model, lock the selector to it. BE also enforces
+// this (override), so this is purely UX.
+const lockedModel = ref(null)
+const lockedModelLabel = computed(() => {
+  if (!lockedModel.value) return ''
+  const m = models.value.find(x => x.name === lockedModel.value)
+  return m ? (m.label || m.name) : lockedModel.value
+})
+function onAgentChange(agent) {
+  const m = agent?.model || null
+  lockedModel.value = m
+  if (m) selectedModel.value = m   // force the selector to the pinned model
+}
 const messagesEl = ref(null)
 const textareaEl = ref(null)
 const fileInput = ref(null)
@@ -1121,7 +1136,7 @@ useShortcuts({
 </script>
 
 <style scoped>
-.chat-app { display: flex; height: 100vh; background: var(--bg); overflow: hidden; }
+.chat-app { display: flex; height: 100vh; background: transparent; overflow: hidden; }
 
 .main {
   flex: 1; display: flex; flex-direction: column;
@@ -1133,7 +1148,10 @@ useShortcuts({
   display: flex; align-items: center;
   height: 50px;
   padding: 0 20px;
-  border-bottom: 1px solid var(--line);
+  background: var(--glass-bg-soft);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--glass-border);
   flex-shrink: 0;
 }
 .topbar-title { flex: 1; min-width: 0; }
@@ -1326,13 +1344,20 @@ useShortcuts({
 .composer {
   max-width: 760px;
   margin: 0 auto;
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  transition: border-color .15s;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-3xl);
+  box-shadow: var(--shadow-island);
+  transition: box-shadow .25s var(--spring), border-color .2s ease;
   position: relative;
 }
-.composer.focused { border-color: var(--line-3); }
+/* Dynamic Island — sáng ring xanh khi focus */
+.composer.focused {
+  border-color: color-mix(in oklab, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 16%, transparent), var(--shadow-island);
+}
 
 /* Slash menu */
 .slash-menu {

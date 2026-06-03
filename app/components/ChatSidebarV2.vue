@@ -513,7 +513,7 @@ const groups = computed(() => {
   background: var(--fg-faint);
   flex-shrink: 0;
 }
-:deep(.convo-dot.pro) { background: #d8ff5b; }
+:deep(.convo-dot.pro) { background: var(--accent); }
 :deep(.convo-dot.chat) { background: #6ab7ff; }
 
 /* ── Tablet (≤ 1024px): narrower sidebar ─────────────── */

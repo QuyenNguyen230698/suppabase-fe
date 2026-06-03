@@ -121,7 +121,7 @@ async function copy() {
   transition: background .12s, color .12s;
 }
 .copy-btn:hover { background: rgba(255,255,255,0.04); color: #e2e8f0; }
-.copy-btn[data-copied="true"] { color: #d8ff5b; }
+.copy-btn[data-copied="true"] { color: var(--accent); }
 
 .token-hint { margin: 6px 0 0; font-size: 11px; color: #334155; }
 

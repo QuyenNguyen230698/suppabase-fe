@@ -79,16 +79,18 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onOutside))
 /* Trigger */
 .ds-dd-trigger {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  background: var(--line);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
   border: 1px solid var(--line-2);
-  border-radius: 8px;
+  border-radius: var(--radius-2xl);
   color: var(--fg);
   cursor: pointer; user-select: none;
-  transition: border-color .12s, background .12s, box-shadow .12s;
+  transition: border-color .15s, background .15s, box-shadow .2s;
   width: 100%;
 }
-.ds-dd-trigger--md { height: 34px; padding: 0 10px 0 12px; font-size: 12px; }
-.ds-dd-trigger--sm { height: 28px; padding: 0 8px  0 10px; font-size: 11px; border-radius: 6px; }
+.ds-dd-trigger--md { height: 34px; padding: 0 12px 0 14px; font-size: 12px; }
+.ds-dd-trigger--sm { height: 28px; padding: 0 10px 0 12px; font-size: 11px; }
 
 .ds-dd-trigger.open,
 .ds-dd-trigger:not(.disabled):hover {
@@ -97,7 +99,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onOutside))
 }
 .ds-dd-trigger.open {
   border-color: color-mix(in oklab, var(--accent) 45%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 10%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 14%, transparent);
 }
 .ds-dd-trigger.disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -109,13 +111,15 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onOutside))
 
 /* Menu */
 .ds-dd-menu {
-  position: absolute; top: calc(100% + 5px);
-  background: var(--bg-elev-2);
-  border: 1px solid var(--line-2);
-  border-radius: 10px;
-  padding: 4px;
+  position: absolute; top: calc(100% + 6px);
+  background: var(--glass-bg-pop);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: 5px;
   min-width: 100%;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-island);
   z-index: 500;
   max-height: 240px; overflow-y: auto;
 }

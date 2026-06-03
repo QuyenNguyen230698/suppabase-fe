@@ -207,16 +207,18 @@ const breadcrumbs = computed(() => {
   display: grid;
   grid-template-columns: 220px 1fr;
   min-height: 100vh;
-  background: var(--bg);
+  background: transparent;       /* để lộ mesh gradient của body */
   font-family: var(--font-sans);
   font-size: 14px;
   color: var(--fg);
 }
 
-/* ── Sidebar ──────────────────────────────────────── */
+/* ── Sidebar (glass) ──────────────────────────────── */
 .sidebar {
-  background: var(--bg-elev);
-  border-right: 1px solid var(--line);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border-right: 1px solid var(--glass-border);
   display: flex;
   flex-direction: column;
   padding: 14px 10px;
@@ -226,7 +228,7 @@ const breadcrumbs = computed(() => {
   z-index: 30;
   overflow: hidden;
   width: 220px;
-  transition: width .25s cubic-bezier(.4,0,.2,1), padding .25s cubic-bezier(.4,0,.2,1);
+  transition: width .25s var(--spring), padding .25s var(--spring);
 }
 .sidebar.collapsed {
   width: 56px;
@@ -270,11 +272,11 @@ const breadcrumbs = computed(() => {
 .brand-mark {
   width: 22px;
   height: 22px;
-  border-radius: 6px;
-  background: var(--accent, #d8ff5b);
+  border-radius: 7px;
+  background: var(--accent);
   position: relative;
   flex-shrink: 0;
-  box-shadow: 0 0 12px color-mix(in oklab, var(--accent, #d8ff5b) 30%, transparent);
+  box-shadow: var(--shadow-pill);
 }
 .brand-inner {
   position: absolute;
@@ -403,8 +405,10 @@ const breadcrumbs = computed(() => {
 /* Top header */
 .top-header {
   height: 48px;
-  background: var(--bg-elev);
-  border-bottom: 1px solid var(--line);
+  background: var(--glass-bg-soft);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--glass-border);
   display: flex;
   align-items: center;
   gap: 10px;

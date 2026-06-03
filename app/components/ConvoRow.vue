@@ -224,7 +224,7 @@ onBeforeUnmount(() => {
   background: var(--fg-faint);
   flex-shrink: 0;
 }
-.convo-dot.pro  { background: #d8ff5b; }
+.convo-dot.pro  { background: var(--accent); }
 .convo-dot.chat { background: #6ab7ff; }
 
 .convo-title-wrap {

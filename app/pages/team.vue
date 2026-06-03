@@ -113,10 +113,13 @@ onMounted(load)
 .team-empty p { margin: 0; max-width: 360px; }
 
 .team-table {
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-3xl);
   overflow: hidden;
-  background: var(--bg-elev);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--shadow-island);
 }
 .th, .tr {
   display: grid;

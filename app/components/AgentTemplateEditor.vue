@@ -209,6 +209,16 @@
             <DsInput v-model.number="form.max_tokens" type="number" />
           </div>
           <div class="span-2">
+            <label class="lbl">Khoá model (tuỳ chọn)</label>
+            <select v-model="form.model" class="select">
+              <option :value="null">— Để người dùng tự chọn —</option>
+              <option v-for="m in availableModels" :key="m.name" :value="m.name">
+                {{ m.label || m.name }}{{ m.role === 'code' ? ' · code' : m.role === 'reasoning' ? ' · reasoning' : '' }}
+              </option>
+            </select>
+            <div class="hint">Nếu chọn, người dùng dùng trợ lý này sẽ bị khoá đúng model đó (không đổi được).</div>
+          </div>
+          <div class="span-2">
             <label class="check-row">
               <input type="checkbox" v-model="form.block_llm_check" />
               <span>Bật LLM safety check (L2 — Llama-Guard, chậm ~500ms nhưng bắt được paraphrase)</span>
@@ -298,10 +308,14 @@ const form = ref({
   locale: 'vi',
   temperature: 0.7,
   max_tokens: 4096,
+  model: null,
   is_active: true,
   is_default: false,
   visibility: 'org',
 })
+
+// Chat models available to pin (from /api/models — already the trimmed list).
+const availableModels = ref([])
 
 const previewPrompt = computed(() => {
   let s = (form.value.system_prompt || '').trim()
@@ -327,7 +341,7 @@ async function load() {
         block_llm_check: false,
         fallback_response: '',
         locale: 'vi',
-        temperature: 0.7, max_tokens: 4096,
+        temperature: 0.7, max_tokens: 4096, model: null,
         is_active: true, is_default: false,
         visibility: isSuperAdmin.value ? 'global' : 'org',
       }
@@ -468,8 +482,10 @@ function iconSvg(name) {
 
 watch(() => [props.templateId, props.isNew], () => load(), { immediate: true })
 
-onMounted(() => {
-  console.log('[AgentTemplateEditor] mounted', { templateId: props.templateId, isNew: props.isNew })
+onMounted(async () => {
+  try {
+    availableModels.value = await apiFetch('/api/models', { _skipLoader: true }) || []
+  } catch { /* leave empty — dropdown just shows "let user choose" */ }
 })
 </script>
 

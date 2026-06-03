@@ -45,17 +45,19 @@ const inputType = computed(() =>
 <style scoped>
 .ds-input-wrap {
   display: flex; align-items: center; gap: 7px;
-  height: 32px; padding: 0 10px;
-  background: var(--line);
+  height: 34px; padding: 0 13px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
   border: 1px solid var(--line-2);
-  border-radius: 8px;
+  border-radius: var(--radius-2xl);
   color: var(--fg-mute);
-  transition: border-color .12s, box-shadow .12s;
+  transition: border-color .15s, box-shadow .2s;
 }
 .ds-input-wrap.focused {
   border-color: color-mix(in oklab, var(--accent) 50%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 12%, transparent);
-  background: var(--line-2);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 15%, transparent);
+  background: var(--bg-elev);
 }
 .ds-input-wrap.error {
   border-color: color-mix(in oklab, var(--danger) 50%, transparent);

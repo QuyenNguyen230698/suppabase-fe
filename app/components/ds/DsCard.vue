@@ -20,11 +20,13 @@ defineProps({
 
 <style scoped>
 .ds-card {
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-3xl);
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+  box-shadow: var(--shadow-island);
 }
 .ds-card-header {
   display: flex; align-items: center; gap: 11px;
@@ -51,7 +53,7 @@ defineProps({
 }
 
 @media (max-width: 768px) {
-  .ds-card { border-radius: 10px; }
+  .ds-card { border-radius: var(--radius-2xl); }
   .ds-card-header { padding: 10px 12px; gap: 8px; }
   .ds-card-body   { padding: 10px 12px; }
   .ds-card-footer { padding: 10px 12px; }

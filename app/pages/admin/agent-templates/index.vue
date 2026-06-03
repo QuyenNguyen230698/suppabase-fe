@@ -323,9 +323,11 @@ onMounted(() => load())
 /* ── List panel ── */
 .list-panel {
   flex: 1; min-width: 0;
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-3xl);
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   transition: all .3s cubic-bezier(.4,0,.2,1);

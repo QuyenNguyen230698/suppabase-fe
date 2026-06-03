@@ -21,27 +21,29 @@ defineProps({
 <style scoped>
 .ds-btn {
   display: inline-flex; align-items: center; gap: 7px;
-  border-radius: 8px;
+  border-radius: 999px;                 /* pill — Apple-soft */
   font-family: var(--font-sans);
   font-weight: 600; cursor: pointer; white-space: nowrap;
-  transition: background .12s, border-color .12s, color .12s, transform .1s;
+  transition: background .15s, border-color .15s, color .15s, box-shadow .2s, transform .12s var(--spring);
   border: 1px solid transparent;
 }
-.ds-btn:active:not(:disabled) { transform: translateY(1px); }
+.ds-btn:active:not(:disabled) { transform: scale(0.96); }   /* .press */
 .ds-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* sizes */
-.ds-btn--md { height: 32px; padding: 0 13px; font-size: 12px; }
-.ds-btn--sm { height: 28px; padding: 0 10px; font-size: 11px; border-radius: 6px; }
+.ds-btn--md { height: 34px; padding: 0 16px; font-size: 12px; }
+.ds-btn--sm { height: 28px; padding: 0 12px; font-size: 11px; }
 
 /* variants */
 .ds-btn--default {
-  background: var(--line);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
   border-color: var(--line-2);
-  color: var(--fg-mute);
+  color: var(--fg-dim);
+  box-shadow: var(--shadow-card);
 }
 .ds-btn--default:hover:not(:disabled) {
-  background: var(--line-2);
   border-color: var(--line-3);
   color: var(--fg);
 }
@@ -50,9 +52,10 @@ defineProps({
   border-color: var(--accent);
   color: var(--accent-fg);
   font-weight: 700;
+  box-shadow: var(--shadow-pill);
 }
 .ds-btn--primary:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--accent) 88%, #fff);
+  background: var(--accent-dark);
 }
 .ds-btn--danger {
   color: var(--danger);
@@ -73,7 +76,7 @@ defineProps({
   border-color: color-mix(in oklab, var(--danger) 35%, transparent);
 }
 
-/* icon-only square */
-.ds-btn--icon-only.ds-btn--md { width: 32px; padding: 0; justify-content: center; }
+/* icon-only — round */
+.ds-btn--icon-only.ds-btn--md { width: 34px; padding: 0; justify-content: center; }
 .ds-btn--icon-only.ds-btn--sm { width: 28px; padding: 0; justify-content: center; }
 </style>

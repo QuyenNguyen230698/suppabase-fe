@@ -86,7 +86,12 @@ onMounted(async () => {
     // Auto-pick default if nothing selected yet
     if (!props.modelValue) {
       const def = items.value.find(t => t.is_default)
-      if (def) emit('update:modelValue', def.id)
+      if (def) { emit('update:modelValue', def.id); emit('change', def) }
+    } else {
+      // Already selected (e.g. restored) — surface the agent object so the
+      // parent can apply a locked model on first load.
+      const cur = items.value.find(t => t.id === props.modelValue)
+      if (cur) emit('change', cur)
     }
   } catch (e) {
     // silent — picker just shows "Chọn agent"

@@ -17,6 +17,9 @@ const state = ref({
   next_full_reset_at: null,
   seconds_to_partial_reset: null,
   seconds_to_full_reset: null,
+  // 'cloudflare_gateway' = authoritative CF number; 'estimated_logs' = local estimate.
+  source: 'estimated_logs',
+  authoritative: false,
 })
 let refCount = 0
 let timer = null
@@ -40,6 +43,8 @@ export function useDailyNeurons() {
           next_full_reset_at: t.next_full_reset || null,
           seconds_to_partial_reset: t.seconds_to_partial_reset ?? null,
           seconds_to_full_reset: t.seconds_to_full_reset ?? null,
+          source: t.source || 'estimated_logs',
+          authoritative: t.source === 'cloudflare_gateway',
         }
       }
     } catch { /* ignore — keep last known */ }
