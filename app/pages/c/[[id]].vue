@@ -257,7 +257,7 @@
                            :locked-hint="lockedModel ? `Model khoá bởi trợ lý: ${lockedModelLabel}` : ''" />
 
             <!-- Agent template picker -->
-            <AgentPicker v-model="selectedAgentId" :disabled="chatStore.isStreaming" @change="onAgentChange" />
+            <AgentPicker v-model="selectedAgentId" :pro-mode="currentSource === 'pro'" :disabled="chatStore.isStreaming" @change="onAgentChange" />
 
             <span v-if="input.length >= CHAR_WARN" class="char-counter" :class="{ danger: input.length >= MAX_CHARS }">
               {{ input.length.toLocaleString() }} / {{ MAX_CHARS.toLocaleString() }}
@@ -316,6 +316,7 @@ const selectedAgentId = ref(null)
 const lockedModel = ref(null)
 const lockedModelLabel = computed(() => {
   if (!lockedModel.value) return ''
+  if (lockedModel.value === PEB_MODEL_VALUE) return 'Pro Plan'
   const m = models.value.find(x => x.name === lockedModel.value)
   return m ? (m.label || m.name) : lockedModel.value
 })

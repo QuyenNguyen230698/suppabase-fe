@@ -17,7 +17,9 @@
           v-for="t in filtered"
           :key="t.id"
           class="ap-item"
-          :class="{ on: t.id === modelValue }"
+          :class="{ on: t.id === modelValue, locked: isLocked(t) }"
+          :disabled="isLocked(t)"
+          :title="isLocked(t) ? 'Cần quyền Pro Plan để dùng trợ lý này' : ''"
           @click="pick(t)"
         >
           <span class="ap-ico" v-html="iconSvg(t.icon || 'bot')"></span>
@@ -25,9 +27,13 @@
             <div class="ap-row1">
               <span class="n">{{ t.name }}</span>
               <span v-if="t.is_default" class="pill default">default</span>
+              <span v-else-if="isProAgent(t)" class="pill pro">pro</span>
             </div>
             <div class="desc">{{ t.description || t.category }}</div>
           </div>
+          <span v-if="isLocked(t)" class="ap-lock" aria-label="locked">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/></svg>
+          </span>
         </button>
         <div v-if="!filtered.length" class="empty">Không có agent phù hợp.</div>
       </div>
@@ -39,14 +45,26 @@
 const props = defineProps({
   modelValue: { type: String, default: null },
   disabled:   { type: Boolean, default: false },
+  // When the chat is in Pro/PEB mode, prefer auto-selecting the Pro agent.
+  proMode:    { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue', 'change'])
 
 const { apiFetch } = useApi()
+const { can } = usePermission()
 
 const open = ref(false)
 const q = ref('')
 const items = ref([])
+
+// A "pro" agent is gated behind the pro_plan permission (category 'pro' or it
+// pins the PEB pseudo-model). Locked = it's a pro agent and the user lacks
+// pro_plan access → shown with a lock, not selectable. BE also enforces this
+// (PEB routes are behind moduleGuard('pro_plan')).
+const PEB_MODEL_VALUE = '__peb__'
+function isProAgent(t) { return t?.category === 'pro' || t?.model === PEB_MODEL_VALUE }
+const canPro = computed(() => can('pro_plan', 'view'))
+function isLocked(t) { return isProAgent(t) && !canPro.value }
 
 const selected = computed(() => items.value.find(t => t.id === props.modelValue) || items.value.find(t => t.is_default) || null)
 
@@ -62,6 +80,7 @@ const filtered = computed(() => {
 
 function close() { open.value = false; q.value = '' }
 function pick(t) {
+  if (isLocked(t)) return   // pro agent + no access → ignore
   emit('update:modelValue', t.id)
   emit('change', t)
   close()
@@ -79,14 +98,16 @@ function iconSvg(name) {
   return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`
 }
 
+function proAgent() { return items.value.find(t => isProAgent(t) && !isLocked(t)) }
+
 onMounted(async () => {
   try {
     const r = await apiFetch('/api/agent-templates', { _skipLoader: true })
     items.value = r.items || []
-    // Auto-pick default if nothing selected yet
     if (!props.modelValue) {
-      const def = items.value.find(t => t.is_default)
-      if (def) { emit('update:modelValue', def.id); emit('change', def) }
+      // Pro/PEB mode + access → prefer the Pro agent; otherwise the default.
+      const pick = (props.proMode && proAgent()) || items.value.find(t => t.is_default)
+      if (pick) { emit('update:modelValue', pick.id); emit('change', pick) }
     } else {
       // Already selected (e.g. restored) — surface the agent object so the
       // parent can apply a locked model on first load.
@@ -96,6 +117,16 @@ onMounted(async () => {
   } catch (e) {
     // silent — picker just shows "Chọn agent"
   }
+})
+
+// If we switch into Pro mode after load (e.g. deep-link ?model=peb resolves a
+// tick later) and the current pick isn't a pro agent, upgrade to the Pro agent.
+watch(() => props.proMode, (on) => {
+  if (!on || !items.value.length) return
+  const cur = items.value.find(t => t.id === props.modelValue)
+  if (cur && isProAgent(cur)) return
+  const pro = proAgent()
+  if (pro) { emit('update:modelValue', pro.id); emit('change', pro) }
 })
 
 // Tiny v-click-outside directive
@@ -158,7 +189,10 @@ const vClickOutside = {
 }
 .ap-item:hover { background: rgba(255,255,255,0.04); }
 .ap-item.on { background: color-mix(in oklab, var(--accent) 12%, transparent); }
+.ap-item.locked { cursor: not-allowed; opacity: 0.6; }
+.ap-item.locked:hover { background: transparent; }
 .ap-item .ap-ico { margin-top: 1px; flex-shrink: 0; }
+.ap-lock { margin-left: auto; color: var(--fg-mute); flex-shrink: 0; align-self: center; }
 .ap-meta { min-width: 0; flex: 1; }
 .ap-row1 { display: flex; align-items: center; gap: 6px; }
 .n { font-size: 12.5px; font-weight: 500; }
@@ -176,6 +210,10 @@ const vClickOutside = {
   padding: 1px 5px; border-radius: 999px;
 }
 .pill.default { background: rgba(126,231,135,0.12); color: var(--ok); }
+.pill.pro {
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
 
 @media (max-width: 768px) {
   .ap-trigger { max-width: 160px; padding: 5px 8px; font-size: 11.5px; }
