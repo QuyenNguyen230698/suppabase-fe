@@ -52,6 +52,7 @@
                 v-else
                 :key="`c-${i}`"
                 :attachment="part"
+                readonly
                 class="user-code-chip"
               />
             </template>

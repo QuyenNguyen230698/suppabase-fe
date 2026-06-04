@@ -50,6 +50,9 @@
     "attachImage": "Attach image",
     "attachFile": "Attach file",
     "removeAttachment": "Remove",
+    "viewPasted": "View pasted content",
+    "pastedContent": "Pasted content",
+    "pastedNote": "Formatting may be inconsistent from source",
     "sendHint": "⏎ send · ⇧⏎ newline · / for commands",
     "groups": {
       "today": "Today",

@@ -50,6 +50,9 @@
     "attachImage": "Đính kèm hình ảnh",
     "attachFile": "Đính kèm tệp",
     "removeAttachment": "Xoá",
+    "viewPasted": "Xem nội dung đã dán",
+    "pastedContent": "Nội dung đã dán",
+    "pastedNote": "Định dạng có thể khác với nguồn gốc",
     "sendHint": "⏎ gửi · ⇧⏎ xuống dòng · / để gọi lệnh",
     "groups": {
       "today": "Hôm nay",

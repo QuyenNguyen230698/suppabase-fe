@@ -184,19 +184,6 @@
             </div>
           </div>
 
-          <!-- Paste-to-attachment suggestion banner -->
-          <div v-if="pasteSuggestion" class="paste-suggest">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-            <span class="paste-suggest-text">
-              Detected <strong>{{ pasteSuggestion.lang }}</strong> code · {{ pasteSuggestion.lines }} lines.
-              Convert to attachment for a cleaner composer?
-            </span>
-            <button class="paste-suggest-yes" @click="acceptPasteSuggestion">Convert</button>
-            <button class="paste-suggest-no" @click="dismissPasteSuggestion" :title="t('common.dismiss') || 'Dismiss'">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
-
           <!-- Pasted code attachments -->
           <div v-if="codeAttachments.length" class="composer-attached">
             <CodeAttachmentChip
@@ -357,43 +344,24 @@ async function onDrop(e) {
   // clicking the paperclip button or selecting files via dialog.
   await uploadFiles(files)
 }
-// When a code-like paste lands in the textarea we don't hijack it — the user
-// always gets their text. Instead we surface a banner suggesting "convert to
-// attachment" so the composer doesn't balloon while keeping paste predictable.
-const pasteSuggestion = ref(null)   // { text, lang, lines } | null
+// A long / code-like paste is automatically turned into a compact "PASTED"
+// card (Claude-style) instead of dumping into the textarea and ballooning the
+// composer. Short pastes flow into the textarea as normal.
+const MAX_CODE_SNIPPETS = 5
 
 function onPaste(e) {
   const text = e.clipboardData?.getData('text/plain') || ''
-  if (!text) return
-  if (!looksLikeCode(text)) {
-    pasteSuggestion.value = null
+  if (!text || !looksLikeCode(text)) return   // let the browser paste normally
+
+  // We're hijacking this paste → stop it from also landing in the textarea.
+  e.preventDefault()
+
+  if (codeAttachments.value.length >= MAX_CODE_SNIPPETS) {
+    uploadError.value = `Max ${MAX_CODE_SNIPPETS} pasted snippets per message`
+    setTimeout(() => { uploadError.value = '' }, 3500)
     return
   }
-  // Let the paste flow into the textarea normally, but offer a one-click
-  // conversion to a compact attachment chip. The banner auto-clears once the
-  // user starts typing or sends.
-  const att = makeCodeAttachment(text)
-  pasteSuggestion.value = { text, lang: att.lang, lines: att.lines }
-}
-
-function acceptPasteSuggestion() {
-  const s = pasteSuggestion.value
-  if (!s) return
-  if (codeAttachments.value.length >= 5) {
-    uploadError.value = 'Max 5 code snippets per message'
-    return
-  }
-  // Strip the pasted text from the textarea — chip carries it from here.
-  if (input.value.includes(s.text)) {
-    input.value = input.value.replace(s.text, '').trim()
-    nextTick(() => autoResize())
-  }
-  codeAttachments.value.push(makeCodeAttachment(s.text))
-  pasteSuggestion.value = null
-}
-
-function dismissPasteSuggestion() {
-  pasteSuggestion.value = null
+  codeAttachments.value.push(makeCodeAttachment(text))
 }
 
 function removeCodeAttachment(id) {
@@ -749,7 +717,6 @@ async function send() {
   const text = buildPromptWithAttachments(input.value.trim())
   input.value = ''
   clearCodeAttachments()
-  pasteSuggestion.value = null
   if (textareaEl.value) { textareaEl.value.value = ''; textareaEl.value.style.height = 'auto'; textareaEl.value.focus() }
 
   pendingAnchor.value = true   // anchor the new user message to the top
@@ -873,12 +840,11 @@ async function runSlash({ cmd, arg }) {
       newConversation()
       break
     case '/clear':
-      // Clear composer + every attachment kind (paste suggestions, code chips,
-      // pending image, attached docs).
+      // Clear composer + every attachment kind (pasted code cards, pending
+      // image, attached docs).
       clearCodeAttachments()
       clearPendingImage()
       chatStore.clearAttachments()
-      pasteSuggestion.value = null
       uploadError.value = ''
       break
     case '/model':
@@ -1515,36 +1481,6 @@ useShortcuts({
   display: flex; flex-wrap: wrap; gap: 6px;
   padding: 10px 14px 0;
 }
-.paste-suggest {
-  display: flex; align-items: center; gap: 8px;
-  margin: 10px 14px 0;
-  padding: 7px 9px 7px 11px;
-  background: rgba(126,231,135,0.06);
-  border: 1px solid rgba(126,231,135,0.18);
-  color: var(--fg-dim);
-  font-size: 11.5px;
-  border-radius: 8px;
-}
-.paste-suggest > svg { color: var(--accent); flex-shrink: 0; }
-.paste-suggest-text { flex: 1; min-width: 0; }
-.paste-suggest-text strong { color: var(--fg); font-family: var(--font-mono); font-weight: 600; }
-.paste-suggest-yes {
-  background: rgba(126,231,135,0.12);
-  border: 1px solid rgba(126,231,135,0.3);
-  color: var(--ok);
-  border-radius: 6px;
-  padding: 3px 9px;
-  font-size: 11px; font-weight: 600;
-  cursor: pointer;
-}
-.paste-suggest-yes:hover { background: rgba(126,231,135,0.2); }
-.paste-suggest-no {
-  background: transparent; border: none;
-  color: var(--fg-mute);
-  cursor: pointer; padding: 4px; border-radius: 4px;
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.paste-suggest-no:hover { color: var(--fg); background: rgba(255,255,255,0.05); }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
   background: rgba(255,255,255,0.04);

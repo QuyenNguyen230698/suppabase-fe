@@ -55,10 +55,27 @@ export function makeCodeAttachment(content) {
   _counter += 1
   const lang = detectCodeLang(content) || 'text'
   const lines = content.split('\n').length
+  const bytes = byteLength(content)
   const id = `code-${Date.now()}-${_counter}`
   const titleSeed = firstMeaningfulLine(content)
   const title = `${lang === 'text' ? 'Snippet' : lang} • ${lines} lines`
-  return { id, lang, lines, content, title, preview: titleSeed }
+  // A few leading lines for the compact chip preview (Claude-style).
+  const snippet = content.split('\n').slice(0, 6).join('\n')
+  return { id, lang, lines, bytes, content, title, preview: titleSeed, snippet }
+}
+
+// Byte size of the UTF-8 encoded string — used to show "14.70 KB" like Claude.
+function byteLength(str) {
+  if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(str).length
+  // SSR / very old env fallback: approximate.
+  return unescape(encodeURIComponent(str)).length
+}
+
+// "14.70 KB" / "820 B" — human-readable size for the chip + popup header.
+export function formatBytes(bytes) {
+  if (bytes == null) return ''
+  if (bytes < 1024) return `${bytes} B`
+  return `${(bytes / 1024).toFixed(2)} KB`
 }
 
 function firstMeaningfulLine(text) {
