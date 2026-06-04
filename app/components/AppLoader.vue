@@ -64,7 +64,8 @@ function starStyle(i) {
 .loading-screen {
   position: fixed;
   inset: 0;
-  background: linear-gradient(160deg, #047857 0%, #0f766e 40%, #4d7c0f 100%);
+  /* Brand blue gradient (matches --accent #2563eb / #5b9dff). */
+  background: linear-gradient(160deg, #1e3a8a 0%, #2563eb 45%, #3b82f6 100%);
   display: flex;
   align-items: center;
   justify-content: center;

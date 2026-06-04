@@ -5,7 +5,60 @@
     <!-- Film grain -->
     <div class="grain" aria-hidden="true"></div>
 
-    <!-- LEFT: form -->
+    <!-- LEFT: intro / showcase -->
+    <aside class="art-side">
+      <div class="art-inner">
+        <span class="art-tag">Suppabase · workspace</span>
+
+        <div class="art-quote">
+          <div class="q-mark">"</div>
+          <div class="q">A quiet place to <em>think</em> with your AI — and a clean place to <em>ship</em> with it.</div>
+          <div class="attr">— Suppabase, 2026</div>
+        </div>
+
+        <!-- About the source / product -->
+        <div class="about">
+          <h2 class="about-title">Suppabase — open AI workspace</h2>
+          <p class="about-text">
+            A self-hosted chat &amp; build workspace powered by Cloudflare Workers AI.
+            RBAC, projects, document RAG, agent templates and usage metering —
+            full source you can read, fork and deploy.
+          </p>
+          <ul class="feat-list">
+            <li><span class="feat-ic">▹</span> Cloudflare Workers AI — deepseek-r1-distill-qwen-32b &amp; qwen2.5-coder</li>
+            <li><span class="feat-ic">▹</span> Role-based access, projects &amp; shareable conversations</li>
+            <li><span class="feat-ic">▹</span> Document RAG, vision &amp; agent templates with slash commands</li>
+          </ul>
+        </div>
+
+        <!-- Guest account — try it read-only -->
+        <div class="guest-card">
+          <div class="guest-head">
+            <span class="guest-badge">Viewer</span>
+            <span class="guest-title">Tài khoản khách · chỉ xem</span>
+          </div>
+          <dl class="guest-creds">
+            <div><dt>Username</dt><dd>guest-suppabase</dd></div>
+            <div><dt>Password</dt><dd>guest@2026</dd></div>
+          </dl>
+          <button type="button" class="guest-fill" @click="useGuest">
+            Dùng tài khoản khách
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+
+        <div class="status-card">
+          <span class="s-dot"></span>
+          <div class="s-meta">
+            <div class="s-nm">Cloudflare Workers AI · connected</div>
+            <div class="s-sub">deepseek-r1-distill-qwen-32b · qwen2.5-coder-32b</div>
+          </div>
+          <span class="s-pill">cloud</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT: form -->
     <section class="form-side">
       <div class="top-row">
         <div class="brand-mark"></div>
@@ -106,35 +159,13 @@
           </div>
 
           <div class="legal">
-            <span>Suppabase · local build</span>
+            <span>Suppabase · cloud build</span>
             <span class="spacer"></span>
-            <span>deepseek-r1:7b · qwen3:14b</span>
+            <span>Cloudflare Workers AI</span>
           </div>
         </form>
       </div>
     </section>
-
-    <!-- RIGHT: art -->
-    <aside class="art-side" aria-hidden="true">
-      <div class="art-inner">
-        <span class="art-tag">Suppabase · workspace</span>
-
-        <div class="art-quote">
-          <div class="q-mark">"</div>
-          <div class="q">A quiet place to <em>think</em> with your AI — and a clean place to <em>ship</em> with it.</div>
-          <div class="attr">— Suppabase, 2026</div>
-        </div>
-
-        <div class="status-card">
-          <span class="s-dot"></span>
-          <div class="s-meta">
-            <div class="s-nm">Ollama running · localhost:11434</div>
-            <div class="s-sub">deepseek-r1:7b · qwen3:14b</div>
-          </div>
-          <span class="s-pill">local</span>
-        </div>
-      </div>
-    </aside>
   </div>
 </template>
 
@@ -162,6 +193,16 @@ onMounted(() => {
 function clearError() {
   error.value = ''
   fieldError.value = ''
+}
+
+// Fill the guest (viewer) credentials and sign in straight away so visitors can
+// explore the workspace in one click. Keep these in sync with migration
+// 055_guest_viewer_account.sql.
+function useGuest() {
+  clearError()
+  form.username = 'guest-suppabase'
+  form.password = 'guest@2026'
+  handleLogin()
 }
 
 function detectCaps(e) {
@@ -215,7 +256,8 @@ async function handleLogin() {
 /* ── Shell ─────────────────────────────────────── */
 .shell {
   display: grid;
-  grid-template-columns: 1.05fr 1fr;
+  /* Intro/showcase on the LEFT, sign-in form on the RIGHT. */
+  grid-template-columns: 1.05fr 0.95fr;
   min-height: 100vh;
   background: transparent;   /* để lộ mesh gradient của body */
   color: var(--fg);
@@ -460,7 +502,7 @@ async function handleLogin() {
     radial-gradient(80% 60% at 100% 0%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 70%),
     radial-gradient(60% 60% at 0% 100%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 70%),
     var(--bg-elev);
-  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
   overflow: hidden;
   display: flex; flex-direction: column;
   padding: 40px;
@@ -497,15 +539,15 @@ async function handleLogin() {
   background: var(--line);
 }
 
-.art-quote { margin: auto 0; max-width: 460px; }
+.art-quote { margin-top: 36px; max-width: 480px; }
 .q-mark {
   font-family: var(--font-serif);
   font-style: italic; color: var(--accent);
-  font-size: 80px; line-height: 1; margin-bottom: -18px; opacity: 0.8;
+  font-size: 72px; line-height: 1; margin-bottom: -18px; opacity: 0.8;
 }
 .q {
   font-family: var(--font-serif);
-  font-size: 38px; line-height: 1.18;
+  font-size: 32px; line-height: 1.18;
   letter-spacing: -0.01em; color: var(--fg);
 }
 .q em { font-style: italic; color: var(--accent); }
@@ -517,6 +559,69 @@ async function handleLogin() {
   display: flex; align-items: center; gap: 10px;
 }
 .attr::before { content: ""; width: 22px; height: 1px; background: var(--line-2); }
+
+/* About / showcase */
+.about { margin-top: 30px; max-width: 480px; }
+.about-title {
+  font-family: var(--font-serif);
+  font-size: 19px; font-weight: 400; margin: 0 0 8px;
+  color: var(--fg); letter-spacing: -0.005em;
+}
+.about-text {
+  color: var(--fg-dim); font-size: 13px; line-height: 1.6; margin: 0 0 14px;
+}
+.feat-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.feat-list li {
+  display: flex; align-items: flex-start; gap: 9px;
+  font-size: 12.5px; color: var(--fg-dim); line-height: 1.5;
+}
+.feat-ic { color: var(--accent); flex-shrink: 0; }
+
+/* Guest credentials card */
+.guest-card {
+  margin-top: 24px; max-width: 480px;
+  padding: 16px;
+  background: color-mix(in oklab, var(--accent) 7%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 28%, transparent);
+  border-radius: 14px;
+}
+.guest-head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+}
+.guest-badge {
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--accent-fg); background: var(--accent);
+  padding: 3px 9px; border-radius: 999px; font-weight: 600;
+}
+.guest-title { font-size: 13px; color: var(--fg); }
+.guest-creds {
+  display: flex; gap: 28px; margin: 0 0 14px;
+}
+.guest-creds div { display: flex; flex-direction: column; gap: 3px; }
+.guest-creds dt {
+  font-family: var(--font-mono);
+  font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--fg-mute);
+}
+.guest-creds dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13.5px; color: var(--fg);
+}
+.guest-fill {
+  appearance: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 16px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-fg);
+  border: 0; font-family: inherit; font-size: 13px; font-weight: 600;
+  transition: background .15s, transform .12s var(--spring);
+}
+.guest-fill:hover { background: color-mix(in oklab, var(--accent) 92%, white); }
+.guest-fill:active { transform: translateY(1px); }
 
 /* Status card */
 .status-card {
@@ -548,29 +653,39 @@ async function handleLogin() {
 }
 
 /* ── Responsive ────────────────────────────────── */
-@media (max-width: 920px) {
-  .shell { grid-template-columns: 1fr; overflow: auto; }
-  .art-side { display: none; }
-  .form-side { padding: 24px; min-height: 100vh; }
-  .title { font-size: 36px; }
-}
-
 @media (max-width: 1024px) {
   .form-side { padding: 24px 32px; }
   .title { font-size: 38px; }
   .art-side { padding: 28px; }
-  .q { font-size: 30px; }
+  .q { font-size: 28px; }
+}
+
+/* Tablet & below: stack — form first (so visitors land on sign-in), then the
+   intro + guest card below it. We don't hide the intro anymore because it holds
+   the guest credentials. */
+@media (max-width: 920px) {
+  .shell { grid-template-columns: 1fr; overflow: auto; min-height: auto; }
+  .form-side { order: 1; padding: 28px 24px; }
+  .art-side {
+    order: 2;
+    border-right: 0; border-top: 1px solid var(--line);
+    padding: 32px 24px;
+  }
+  .art-inner { height: auto; }
+  .art-quote { display: none; }       /* keep the stacked view tight */
+  .status-card { margin-top: 24px; }
+  .title { font-size: 36px; }
 }
 
 @media (max-width: 768px) {
-  .shell { grid-template-columns: 1fr; overflow: auto; }
-  .art-side { display: none; }
-  .form-side { padding: 20px 18px; min-height: 100vh; }
+  .form-side { padding: 22px 18px; }
+  .art-side { padding: 24px 18px; }
   .title { font-size: 32px; }
   .subtitle { font-size: 13px; margin-bottom: 24px; }
   .inp-wrap { height: 46px; }
   .submit { height: 46px; font-size: 15px; }
   .legal { flex-direction: column; gap: 4px; font-size: 10px; }
   .spacer { display: none; }
+  .guest-creds { gap: 20px; }
 }
 </style>
