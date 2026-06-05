@@ -34,6 +34,11 @@
           Flagged only
         </div>
 
+        <div class="filter-chip" :class="{ active: filters.has_files }" @click="filters.has_files = filters.has_files ? '' : '1'; applyFilters()" title="Chỉ Q&A có file đính kèm">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          Có file
+        </div>
+
         <div class="filter-chip" @click="exportData('csv')" title="Export filtered results to CSV">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           CSV
@@ -94,114 +99,141 @@
       </div>
     </div>
 
-    <!-- Split pane body -->
-    <div class="body-pane">
+    <!-- Card-grid toolbar: select-all + sort + page size -->
+    <div class="grid-toolbar">
+      <label class="ga-selectall">
+        <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" />
+        <span>{{ allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả' }}</span>
+      </label>
 
-      <!-- LEFT: list -->
-      <div class="list-panel" :class="{ collapsed: !!selected }">
-        <div class="table-head" :class="{ compact: !!selected }">
-          <template v-if="!selected">
-            <span class="th-check"><input type="checkbox" :checked="allSelected" @change="toggleSelectAll" /></span>
-            <span class="th-sort" @click="toggleSort('created_at')">Time{{ sortIndicator('created_at') }}</span>
-            <span class="th-sort" @click="toggleSort('user')">User{{ sortIndicator('user') }}</span>
-            <span class="th-sort" @click="toggleSort('agent')">Agent{{ sortIndicator('agent') }}</span>
-            <span>Question / Answer</span>
-            <span class="th-sort" @click="toggleSort('flag')">Flag{{ sortIndicator('flag') }}</span>
-            <span></span>
-          </template>
-          <template v-else>
-            <span>Q&amp;A pairs</span>
-            <span></span>
-          </template>
-        </div>
+      <div class="ga-spacer"></div>
 
-        <div v-if="loading" class="empty-state">
-          <div class="empty-sub">Đang tải…</div>
-        </div>
-        <div v-else-if="!items.length" class="empty-state">
-          <div class="empty-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          </div>
-          <div class="empty-title">No Q&amp;A found</div>
-          <div class="empty-sub">Thử bỏ filter hoặc mở rộng khoảng thời gian.</div>
-        </div>
+      <div class="ga-sort">
+        <span class="ga-sort-lbl">Sắp xếp</span>
+        <select :value="filters.sort" class="filter-select" @change="setSort($event.target.value)">
+          <option value="created_at">Thời gian</option>
+          <option value="user">User</option>
+          <option value="agent">Agent</option>
+          <option value="flag">Flag</option>
+        </select>
+        <button class="ga-dir" :title="filters.dir === 'asc' ? 'Tăng dần' : 'Giảm dần'" @click="toggleDir">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path v-if="filters.dir === 'asc'" d="m18 15-6-6-6 6"/>
+            <path v-else d="m6 9 6 6 6-6"/>
+          </svg>
+        </button>
+      </div>
 
-        <template v-else-if="selected">
-          <div
-            v-for="row in items"
-            :key="row.user_message_id"
-            class="compact-row"
-            :class="{ selected: selected?.user_message_id === row.user_message_id, flagged: row.flagged }"
-            @click="selectRow(row)"
-          >
-            <div class="compact-info">
-              <div class="compact-name">{{ row.username || '—' }} · {{ row.agent_name || '—' }}</div>
-              <div class="compact-q">{{ truncate(row.question, 60) }}</div>
+      <select v-model.number="filters.limit" class="page-size" @change="applyFilters" title="Số card mỗi trang">
+        <option :value="24">24 / trang</option>
+        <option :value="48">48 / trang</option>
+        <option :value="96">96 / trang</option>
+      </select>
+    </div>
+
+    <!-- Card grid (Google Drive style) -->
+    <div class="grid-body">
+      <div v-if="loading" class="empty-state">
+        <div class="empty-sub">Đang tải…</div>
+      </div>
+      <div v-else-if="!items.length" class="empty-state">
+        <div class="empty-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <div class="empty-title">No Q&amp;A found</div>
+        <div class="empty-sub">Thử bỏ filter hoặc mở rộng khoảng thời gian.</div>
+      </div>
+
+      <div v-else class="card-grid">
+        <article
+          v-for="row in items"
+          :key="row.user_message_id"
+          class="qa-card"
+          :class="{ flagged: row.flagged, picked: selectedIds.has(row.user_message_id) }"
+          @click="openCanvas(row)"
+        >
+          <!-- top row: avatar/user + select + quick-flag -->
+          <header class="card-head">
+            <label class="card-check" @click.stop>
+              <input type="checkbox" :checked="selectedIds.has(row.user_message_id)" @change="(e) => toggleSelect(row.user_message_id, e)" />
+            </label>
+            <div class="user-avatar">{{ initials(row.username) }}</div>
+            <div class="card-user">
+              <div class="user-name">{{ row.username || '—' }}</div>
+              <div class="user-email">{{ row.email || '—' }}</div>
             </div>
+            <button class="quick-flag" :class="{ on: row.flagged }" @click.stop="quickFlag(row, $event)"
+                    :title="row.flagged ? 'Bỏ flag' : 'Flag nhanh'">
+              <svg width="12" height="12" viewBox="0 0 24 24" :fill="row.flagged ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            </button>
+          </header>
+
+          <!-- body: Q + A preview -->
+          <div class="card-body">
+            <div class="qa-q"><span class="qa-tag">Q</span> {{ truncate(row.question, 160) }}</div>
+            <div class="qa-a"><span class="qa-tag a">A</span> {{ truncate(row.answer || '(no response)', 160) }}</div>
+          </div>
+
+          <!-- footer: meta + file thumbnails -->
+          <footer class="card-foot">
+            <span class="card-meta mono">{{ formatTime(row.asked_at) }}</span>
+            <span v-if="row.agent_name" class="card-agent">{{ row.agent_name }}</span>
             <span v-if="row.flagged" class="status-badge flagged">
               <span class="badge-dot"></span>{{ row.flag_reason || 'flagged' }}
             </span>
-          </div>
-        </template>
+            <span class="card-foot-spacer"></span>
 
-        <template v-else>
-          <div
-            v-for="row in items"
-            :key="row.user_message_id"
-            class="table-row"
-            :class="{ flagged: row.flagged, picked: selectedIds.has(row.user_message_id) }"
-            @click="selectRow(row)"
-          >
-            <div class="cell-check" @click.stop>
-              <input type="checkbox" :checked="selectedIds.has(row.user_message_id)" @change="(e) => toggleSelect(row.user_message_id, e)" />
-            </div>
-            <div class="cell-meta mono">{{ formatTime(row.asked_at) }}</div>
-            <div class="cell-user">
-              <div class="user-avatar">{{ initials(row.username) }}</div>
-              <div class="user-info">
-                <div class="user-name">{{ row.username || '—' }}</div>
-                <div class="user-email">{{ row.email || '—' }}</div>
-              </div>
-            </div>
-            <div class="cell-meta">{{ row.agent_name || '—' }}</div>
-            <div class="cell-qa">
-              <div class="qa-q"><span class="qa-tag">Q</span> {{ truncate(row.question, 120) }}</div>
-              <div class="qa-a"><span class="qa-tag a">A</span> {{ truncate(row.answer || '(no response)', 120) }}</div>
-            </div>
-            <div>
-              <!-- Quick-flag toggle right from the list -->
-              <button class="quick-flag" :class="{ on: row.flagged }" @click="quickFlag(row, $event)"
-                      :title="row.flagged ? 'Bỏ flag' : 'Flag nhanh'">
-                <svg width="12" height="12" viewBox="0 0 24 24" :fill="row.flagged ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-                <span v-if="row.flagged" class="qf-reason">{{ row.flag_reason || 'flagged' }}</span>
+            <!-- File chips/thumbnails — click jumps straight into preview -->
+            <div v-if="fileCount(row)" class="card-files" @click.stop>
+              <button
+                v-for="f in (row.attached_files || []).slice(0, 3)"
+                :key="f.document_id"
+                class="card-file"
+                :class="[`kind-${f.kind || 'document'}`, { expired: isFileExpired(f) }]"
+                @click="openPreview(f)"
+                :title="isFileExpired(f) ? `${f.name} — hết hạn` : `Xem ${f.name}`"
+              >
+                <img v-if="f.kind === 'image' && (f.r2_public_url || f.document_id)"
+                     :src="f.r2_public_url || docRawUrl(f)" :alt="f.name"
+                     class="card-file-thumb" @error="e => e.target.style.display='none'" />
+                <span v-else class="card-file-icon" v-html="fileKindIcon(f)"></span>
               </button>
+              <span v-if="fileCount(row) > 3" class="card-file more">+{{ fileCount(row) - 3 }}</span>
             </div>
-            <div class="cell-action">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-            </div>
-          </div>
-        </template>
-
-        <div v-if="items.length" class="table-footer">
-          <span>{{ items.length }} of {{ total }} pair{{ total !== 1 ? 's' : '' }}</span>
-          <div class="pager">
-            <button :disabled="filters.page <= 1" @click="changePage(filters.page - 1)">‹</button>
-            <span class="page-num">{{ filters.page }} / {{ totalPages }}</span>
-            <button :disabled="filters.page >= totalPages" @click="changePage(filters.page + 1)">›</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- RIGHT: detail -->
-      <div v-if="selected" class="detail-panel">
-        <QaAuditDetail
-          :key="selected.user_message_id"
-          :row="selected"
-          @close="selected = null"
-          @flagged="onFlagged"
-        />
+          </footer>
+        </article>
       </div>
     </div>
+
+    <!-- Pagination -->
+    <div v-if="items.length" class="grid-footer">
+      <span>{{ items.length }} of {{ total }} pair{{ total !== 1 ? 's' : '' }}</span>
+      <div class="pager">
+        <button :disabled="filters.page <= 1" @click="changePage(filters.page - 1)">‹</button>
+        <span class="page-num">{{ filters.page }} / {{ totalPages }}</span>
+        <button :disabled="filters.page >= totalPages" @click="changePage(filters.page + 1)">›</button>
+      </div>
+    </div>
+
+    <!-- ── Detail canvas (full-screen modal, Google-app style) ── -->
+    <Teleport to="body">
+      <Transition name="canvas">
+        <div v-if="selected" class="canvas-overlay" @click.self="closeCanvas" @keydown.esc="closeCanvas">
+          <div class="canvas">
+            <QaAuditDetail
+              :key="selected.user_message_id"
+              :row="selected"
+              @close="closeCanvas"
+              @flagged="onFlagged"
+              @preview-file="openPreview"
+            />
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- File preview popup — reused from the chat AI experience -->
+    <FilePreviewPopup v-model="previewOpen" :file="previewFile" />
 
     <!-- Access-log drawer (super_admin) -->
     <div v-if="showAccessLog" class="al-overlay" @click.self="showAccessLog = false">
@@ -231,6 +263,7 @@ const { show: showToast } = useToast()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const config = useRuntimeConfig()
 const isSuperAdmin = computed(() => auth.isSuperAdmin)
 
 const items = ref([])
@@ -240,6 +273,47 @@ const selected = ref(null)
 const masked = ref(false)
 const statsData = ref(null)
 const filterOpts = ref({ agents: [], users: [] })
+
+// ── File preview (shared with the chat AI FilePreviewPopup) ──
+const previewOpen = ref(false)
+const previewFile = ref(null)
+function openPreview(f) {
+  if (!f) return
+  previewFile.value = f
+  previewOpen.value = true
+}
+
+function fileCount(row) { return (row?.attached_files || []).length }
+function isFileExpired(f) {
+  if (!f?.expires_at) return false
+  return new Date(f.expires_at) < new Date()
+}
+// Inline SVG per file kind for the attachments rail.
+function fileKindIcon(f) {
+  const k = f?.kind || 'document'
+  const I = {
+    image: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>',
+    pdf:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    code:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+  }
+  return I[k] || '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+}
+// Proxy raw doc URL through backend (avoids R2 CORS) — for image thumbnails.
+function docRawUrl(doc) {
+  return `${config.public.apiBase}/api/documents/${doc.document_id}/raw`
+}
+
+// ── Detail canvas (full-screen modal) ──
+function openCanvas(row) { selected.value = row }
+function closeCanvas() { selected.value = null }
+// Lock body scroll + Esc-to-close while the canvas is open.
+watch(selected, (v) => {
+  if (typeof document === 'undefined') return
+  document.body.style.overflow = v ? 'hidden' : ''
+  if (v) document.addEventListener('keydown', onCanvasKey)
+  else document.removeEventListener('keydown', onCanvasKey)
+})
+function onCanvasKey(e) { if (e.key === 'Escape') closeCanvas() }
 
 // Bulk selection (Set of user_message_id) + quick-flag busy state.
 const selectedIds = ref(new Set())
@@ -256,10 +330,11 @@ const filters = reactive({
   user_id: route.query.user_id || '',
   agent_id: route.query.agent_id || '',
   flagged: route.query.flagged || '',
+  has_files: route.query.has_files || '',
   sort: route.query.sort || 'created_at',
   dir: route.query.dir || 'desc',
   page: parseInt(route.query.page, 10) || 1,
-  limit: 25,
+  limit: [24, 48, 96].includes(parseInt(route.query.limit, 10)) ? parseInt(route.query.limit, 10) : 24,
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / filters.limit)))
@@ -267,10 +342,11 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / filters.li
 // Mirror the active filters into the URL (replace, no history spam).
 function syncUrl() {
   const q = {}
-  for (const k of ['q', 'user_id', 'agent_id', 'flagged', 'sort', 'dir']) {
+  for (const k of ['q', 'user_id', 'agent_id', 'flagged', 'has_files', 'sort', 'dir']) {
     if (filters[k] !== '' && filters[k] != null) q[k] = String(filters[k])
   }
   if (filters.page > 1) q.page = String(filters.page)
+  if (filters.limit !== 24) q.limit = String(filters.limit)
   router.replace({ query: q })
 }
 
@@ -313,18 +389,17 @@ async function loadAux() {
 
 function applyFilters() { filters.page = 1; load() }
 function changePage(p)  { filters.page = p; load() }
-function selectRow(r)   { selected.value = r }
 
-// Click a sortable column header → toggle dir if same col, else default desc.
-function toggleSort(col) {
-  if (filters.sort === col) filters.dir = filters.dir === 'asc' ? 'desc' : 'asc'
-  else { filters.sort = col; filters.dir = 'desc' }
+// Sort controls (grid toolbar dropdown + direction toggle).
+function setSort(col) {
+  filters.sort = col
   filters.page = 1
   load()
 }
-function sortIndicator(col) {
-  if (filters.sort !== col) return ''
-  return filters.dir === 'asc' ? ' ↑' : ' ↓'
+function toggleDir() {
+  filters.dir = filters.dir === 'asc' ? 'desc' : 'asc'
+  filters.page = 1
+  load()
 }
 
 // ── Bulk selection ──
@@ -439,6 +514,13 @@ function initials(s) {
 }
 
 onMounted(() => { load(); loadAux() })
+onUnmounted(() => {
+  // Make sure we never leave the page with body scroll locked.
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = ''
+    document.removeEventListener('keydown', onCanvasKey)
+  }
+})
 </script>
 
 <style scoped>
@@ -521,88 +603,98 @@ onMounted(() => { load(); loadAux() })
 }
 .top-agent b { color: var(--accent); font-weight: 700; margin-left: 3px; }
 
-/* ── Body split pane ── */
-.body-pane {
-  display: flex; flex: 1;
-  min-height: 0;
-  padding: 16px 20px;
-  align-items: flex-start;
+/* ── Grid toolbar ── */
+.grid-toolbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 28px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--line);
+}
+.ga-selectall {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 700; color: var(--fg-mute);
+  cursor: pointer; user-select: none;
+}
+.ga-selectall input { cursor: pointer; }
+.ga-spacer { flex: 1; }
+.ga-sort { display: inline-flex; align-items: center; gap: 7px; }
+.ga-sort-lbl {
+  font-size: 10px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--fg-faint);
+}
+.ga-dir {
+  display: grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 7px;
+  background: var(--line); border: 1px solid var(--line-2);
+  color: var(--fg-mute); cursor: pointer;
+  transition: color .12s, border-color .12s;
+}
+.ga-dir:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ── Grid body ── */
+.grid-body {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+  padding: 18px 28px;
+}
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
 }
 
-/* ── List panel ── */
-.list-panel {
-  flex: 1; min-width: 0;
+/* ── Q&A card ── */
+.qa-card {
+  display: flex; flex-direction: column;
+  min-height: 168px;
   background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  backdrop-filter: blur(20px) saturate(170%);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-3xl);
-  overflow: hidden;
+  border-radius: var(--radius-2xl, 16px);
+  box-shadow: var(--shadow-card);
+  cursor: pointer; position: relative; overflow: hidden;
+  transition: transform .14s var(--spring), border-color .14s, box-shadow .14s;
+}
+.qa-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--accent) 35%, transparent);
   box-shadow: var(--shadow-island);
-  transition: all .3s var(--spring);
 }
-.list-panel.collapsed {
-  flex: 0 0 360px;
-  margin-right: 14px;
+.qa-card.picked { border-color: color-mix(in oklab, var(--accent) 55%, transparent); }
+.qa-card.flagged::after {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--danger);
 }
 
-.table-head {
-  display: grid;
-  grid-template-columns: 32px 90px 180px 120px 1fr 120px 36px;
-  gap: 12px;
-  padding: 10px 16px;
-  background: var(--line);
-  border-bottom: 1px solid var(--line);
-  font-size: 10px; font-weight: 800;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--fg-mute);
+.card-head {
+  display: flex; align-items: center; gap: 9px;
+  padding: 12px 14px 8px;
 }
-.table-head.compact { grid-template-columns: 1fr 0px; padding: 10px 14px; }
-
-.table-row {
-  display: grid;
-  grid-template-columns: 32px 90px 180px 120px 1fr 120px 36px;
-  gap: 12px;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
-  cursor: pointer; position: relative;
-  transition: background .1s;
-}
-.table-row::before {
-  content: ""; position: absolute;
-  left: 0; top: 20%; bottom: 20%;
-  width: 2px; border-radius: 0 2px 2px 0;
-  background: var(--accent); opacity: 0;
-  transition: opacity .15s;
-}
-.table-row:hover { background: var(--line); }
-.table-row:hover::before { opacity: 0.5; }
-.table-row.flagged::before { background: var(--danger); opacity: 1; }
-.table-row:last-child { border-bottom: 0; }
-
-.cell-meta { font-size: 11px; color: var(--fg-mute); }
-.cell-meta.mono { font-family: var(--font-mono); }
-.cell-action { display: grid; place-items: center; color: var(--fg-faint); transition: color .12s, transform .12s; }
-.table-row:hover .cell-action { color: var(--accent); transform: translateX(2px); }
-
-.cell-user { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.card-check { display: grid; place-items: center; cursor: pointer; }
+.card-check input { cursor: pointer; }
 .user-avatar {
-  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
   background: linear-gradient(135deg, #3b3b42, #1c1c22);
   color: var(--fg);
   display: grid; place-items: center;
-  font-size: 10px; font-weight: 800;
+  font-size: 10.5px; font-weight: 800;
 }
-.user-info { min-width: 0; }
-.user-name { font-size: 12px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-user { flex: 1; min-width: 0; }
+.user-name { font-size: 12.5px; font-weight: 700; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .user-email { font-size: 10px; color: var(--fg-mute); font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.cell-qa { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 11.5px; line-height: 1.5; }
+.card-body {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 0 14px 10px;
+  font-size: 12px; line-height: 1.5;
+}
 .qa-q, .qa-a {
   display: flex; align-items: flex-start; gap: 6px;
   color: var(--fg-dim);
   overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
 }
 .qa-a { color: var(--fg-mute); }
 .qa-tag {
@@ -618,38 +710,130 @@ onMounted(() => { load(); loadAux() })
   color: var(--info, #38bdf8);
 }
 
-.compact-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--line);
-  cursor: pointer; position: relative;
-  transition: background .1s;
-}
-.compact-row::before {
-  content: ""; position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 2px; border-radius: 0 2px 2px 0;
-  background: var(--accent); opacity: 0;
-  transition: opacity .15s;
-}
-.compact-row:hover { background: var(--line); }
-.compact-row.selected { background: color-mix(in oklab, var(--accent) 5%, transparent); }
-.compact-row.selected::before { opacity: 1; }
-.compact-row.flagged::before { background: var(--danger); opacity: 1; }
-.compact-row:last-child { border-bottom: 0; }
-.compact-info { flex: 1; min-width: 0; }
-.compact-name { font-size: 11.5px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.compact-q { font-size: 11px; color: var(--fg-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
-
-.table-footer {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 16px;
+.card-foot {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 9px 14px;
   border-top: 1px solid var(--line);
-  background: var(--line);
+  background: color-mix(in oklab, var(--line) 50%, transparent);
+}
+.card-meta { font-size: 10.5px; color: var(--fg-mute); }
+.card-meta.mono { font-family: var(--font-mono); }
+.card-agent {
+  font-size: 10px; color: var(--fg-dim);
+  background: var(--line); padding: 2px 8px; border-radius: 999px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;
+}
+.card-foot-spacer { flex: 1; }
+
+/* File thumbnails in the card footer */
+.card-files { display: inline-flex; align-items: center; gap: 5px; }
+.card-file {
+  display: grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 7px;
+  border: 1px solid var(--line-2); overflow: hidden;
+  background: var(--bg); cursor: pointer; padding: 0;
+  transition: transform .12s, border-color .12s;
+}
+.card-file:hover { transform: scale(1.08); border-color: var(--accent); }
+.card-file.expired { opacity: .55; border-style: dashed; }
+.card-file-thumb { width: 100%; height: 100%; object-fit: cover; }
+.card-file-icon { display: grid; place-items: center; }
+.card-file.kind-image    { color: #63b3ed; }
+.card-file.kind-pdf      { color: #fc814a; }
+.card-file.kind-code     { color: #9ae6b4; }
+.card-file.kind-text     { color: #c5a5e4; }
+.card-file.kind-document { color: #f6e05e; }
+.card-file.more {
+  font-size: 10px; font-weight: 800; color: var(--fg-mute);
+  cursor: default; background: var(--line);
+}
+.card-file.more:hover { transform: none; border-color: var(--line-2); }
+
+/* ── Grid footer / pagination ── */
+.grid-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 28px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-elev);
   font-size: 10px; font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--fg-mute);
 }
+
+/* ── Detail canvas (full-screen modal) ── */
+.canvas-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0,0,0,0.55);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px;
+}
+.canvas {
+  width: min(960px, 100%);
+  height: min(86vh, 900px);
+  display: flex; flex-direction: column;
+  background: var(--bg-elev);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-3xl, 20px);
+  overflow: hidden;
+  box-shadow: 0 32px 100px rgba(0,0,0,0.6);
+}
+/* QaAuditDetail fills the canvas. */
+.canvas :deep(.detail-root) { flex: 1; min-height: 0; }
+
+.canvas-enter-active, .canvas-leave-active { transition: opacity .2s ease; }
+.canvas-enter-active .canvas, .canvas-leave-active .canvas { transition: transform .2s cubic-bezier(.2,.7,.2,1), opacity .2s ease; }
+.canvas-enter-from, .canvas-leave-to { opacity: 0; }
+.canvas-enter-from .canvas, .canvas-leave-to .canvas { transform: translateY(16px) scale(.98); opacity: 0; }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 9px; font-weight: 800;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px;
+  background: var(--line); color: var(--fg-mute);
+  border: 1px solid var(--line-2);
+}
+.status-badge.flagged {
+  background: color-mix(in oklab, var(--danger) 10%, transparent);
+  color: var(--danger);
+  border-color: color-mix(in oklab, var(--danger) 25%, transparent);
+}
+.badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 60px 20px; gap: 8px;
+}
+.empty-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  border: 1px dashed var(--line-2);
+  display: grid; place-items: center;
+  color: var(--fg-faint); margin-bottom: 4px;
+}
+.empty-title { font-size: 11px; font-weight: 800; color: var(--fg-mute); }
+.empty-sub { font-size: 11px; color: var(--fg-faint); text-align: center; }
+
+.pager { display: flex; align-items: center; gap: 8px; }
+.pager button {
+  appearance: none;
+  background: var(--line); border: 1px solid var(--line-2);
+  color: var(--fg);
+  width: 26px; height: 24px; border-radius: 5px;
+  font-size: 13px; cursor: pointer;
+}
+.pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+.pager button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.page-num { font-family: var(--font-mono); color: var(--fg-dim); text-transform: none; }
+
+.page-size {
+  height: 24px;
+  background: var(--bg-elev); border: 1px solid var(--line-2);
+  color: var(--fg-dim); border-radius: 4px; padding: 0 6px;
+  font-size: 10px; font-weight: 700; cursor: pointer;
+}
+.page-size:focus { outline: 1px solid var(--accent); }
 .pager { display: flex; align-items: center; gap: 8px; }
 .pager button {
   appearance: none;
@@ -690,21 +874,6 @@ onMounted(() => { load(); loadAux() })
 .empty-title { font-size: 11px; font-weight: 800; color: var(--fg-mute); }
 .empty-sub { font-size: 11px; color: var(--fg-faint); text-align: center; }
 
-/* ── Detail panel ── */
-.detail-panel {
-  flex: 1; min-width: 0; min-height: 500px;
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-3xl);
-  overflow: hidden;
-  box-shadow: var(--shadow-island);
-  display: flex; flex-direction: column;
-  align-self: stretch;
-  max-height: calc(100vh - 200px);
-}
-
 /* ── Bulk action bar ── */
 .bulk-bar {
   display: flex; align-items: center; gap: 10px;
@@ -721,13 +890,6 @@ onMounted(() => { load(); loadAux() })
 .bulk-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .bulk-btn.ghost { color: var(--fg-mute); }
 .bulk-btn:disabled { opacity: .5; cursor: not-allowed; }
-
-/* ── Sort headers + checkbox column ── */
-.th-sort { cursor: pointer; user-select: none; }
-.th-sort:hover { color: var(--fg); }
-.th-check, .cell-check { display: grid; place-items: center; }
-.cell-check input, .th-check input { cursor: pointer; }
-.table-row.picked { background: color-mix(in oklab, var(--accent) 6%, transparent); }
 
 /* ── Quick-flag button ── */
 .quick-flag {
@@ -791,52 +953,12 @@ onMounted(() => { load(); loadAux() })
   .header-right { flex-wrap: wrap; gap: 6px; }
   .stats-strip { padding: 8px 18px; overflow-x: auto; flex-wrap: nowrap; gap: 0; }
   .stat-sep { flex-shrink: 0; }
-  .body-pane { padding: 12px 14px; gap: 12px; }
-  .list-panel,
-  .list-panel.collapsed { flex: 1; margin-right: 0; }
-  .table-head:not(.compact) { grid-template-columns: 32px 1fr 90px 60px 36px; gap: 10px; }
-  .table-row                { grid-template-columns: 32px 1fr 90px 60px 36px; gap: 10px; }
-  /* hide Time(2), User(3), Agent(4) — keep checkbox(1), Q&A(5), flag(6), action(7) */
-  .table-head > *:nth-child(2),
-  .table-row  > *:nth-child(2),
-  .table-head > *:nth-child(3),
-  .table-row  > *:nth-child(3),
-  .table-head > *:nth-child(4),
-  .table-row  > *:nth-child(4) { display: none; }
-
-  .detail-panel {
-    position: fixed;
-    inset: 0 0 0 auto;
-    z-index: 40;
-    width: 100% !important;
-    max-width: 720px !important;
-    min-height: 100vh;
-    max-height: none;
-    margin: 0;
-    border-radius: 0;
-    border: 0;
-    border-left: 1px solid var(--line);
-    background: var(--bg);
-    box-shadow: -8px 0 32px rgba(0,0,0,0.4);
-    overflow-y: auto;
-    animation: detail-pop-in .22s cubic-bezier(.4,0,.2,1);
-  }
-  .body-pane:has(.detail-panel)::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 39;
-    animation: backdrop-fade .2s ease;
-  }
-  @keyframes detail-pop-in {
-    from { opacity: 0; transform: translateX(20px); }
-    to   { opacity: 1; transform: translateX(0); }
-  }
-  @keyframes backdrop-fade {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
+  .grid-toolbar { padding: 10px 18px; }
+  .grid-body { padding: 14px 18px; }
+  .grid-footer { padding: 10px 18px; }
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .canvas-overlay { padding: 24px; }
+  .canvas { height: min(90vh, 900px); }
 }
 
 /* ── Mobile (≤768px) ── */
@@ -874,85 +996,29 @@ onMounted(() => { load(); loadAux() })
   .stat-item { padding: 0 12px 0 0; }
   .stat-sep { margin: 0 12px; flex-shrink: 0; }
 
-  .body-pane {
-    padding: 10px;
-    flex-direction: column;
-    gap: 10px;
-    overflow: visible;
-  }
+  .grid-toolbar { padding: 8px 14px; gap: 8px; }
+  .ga-sort-lbl { display: none; }
+  .grid-body { padding: 12px 14px; }
+  .grid-footer { padding: 10px 14px; }
+  /* Single column on phones. */
+  .card-grid { grid-template-columns: 1fr; gap: 10px; }
+  .qa-card { min-height: 0; }
 
-  .list-panel,
-  .list-panel.collapsed {
-    flex: none;
-    width: 100%;
-    max-height: none;
-    margin: 0;
-    border-radius: 10px;
+  /* Canvas goes full-screen on mobile. */
+  .canvas-overlay { padding: 0; }
+  .canvas {
+    width: 100%; height: 100%;
+    border-radius: 0; border: 0;
   }
-
-  /* Mobile: fullscreen popup */
-  .detail-panel {
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-height: 100vh;
-    max-height: none;
-    margin: 0;
-    border-radius: 0;
-    border: 0;
-    padding: 0;
-    background: var(--bg);
-    box-shadow: none;
-    overflow-y: auto;
-    animation: detail-pop-in-mobile .22s cubic-bezier(.4,0,.2,1);
-  }
-  @keyframes detail-pop-in-mobile {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .table-head { display: none !important; }
-  .table-row {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch;
-    text-align: left;
-    gap: 6px;
-    padding: 12px 14px;
-    position: relative;
-    min-height: 56px;
-    grid-template-columns: none !important;
-  }
-  .table-row > * {
-    display: block !important;
-    width: auto;
-    text-align: left;
-  }
-  .table-row > *:first-child { font-weight: 600; font-size: 13px; padding-right: 32px; }
-  .table-row > *:not(:first-child):not(:last-child) {
-    font-size: 11.5px;
-    color: var(--fg-mute);
-  }
-  .table-row > *:last-child {
-    position: absolute;
-    top: 14px; right: 12px;
-    display: grid !important;
-    place-items: center;
-  }
-
-  .detail-panel :deep(.meta-grid) { grid-template-columns: 1fr !important; }
-  .detail-panel :deep(.reason-grid) { grid-template-columns: 1fr !important; }
+  .canvas :deep(.meta-grid) { grid-template-columns: 1fr !important; }
+  .canvas :deep(.reason-grid) { grid-template-columns: 1fr !important; }
 }
 
 /* ── Small mobile (≤480px) ── */
 @media (max-width: 480px) {
   .page-header { padding: 12px 12px 10px; }
   .page-title { font-size: 16px; }
-  .body-pane { padding: 8px; gap: 8px; }
-  .list-panel, .list-panel.collapsed { border-radius: 8px; }
-  .detail-panel { border-radius: 8px; }
+  .grid-body { padding: 10px; }
   .stats-strip { padding: 6px 12px; }
   .header-right > :deep(.ds-select) { flex: 1 1 100%; }
 }

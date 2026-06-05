@@ -1,169 +1,161 @@
 <template>
   <div class="shell">
     <AppLoader :show="loaderVisible" message="Signing in…" />
-
-    <!-- Film grain -->
     <div class="grain" aria-hidden="true"></div>
 
-    <!-- LEFT: intro / showcase -->
+    <!-- LEFT: intro -->
     <aside class="art-side">
       <div class="art-inner">
-        <span class="art-tag">Suppabase · workspace</span>
-
-        <div class="art-quote">
-          <div class="q-mark">"</div>
-          <div class="q">A quiet place to <em>think</em> with your AI — and a clean place to <em>ship</em> with it.</div>
-          <div class="attr">— Suppabase, 2026</div>
+        <div class="brand-row">
+          <span class="brand-logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>
+          </span>
+          <span class="brand-name">Suppabase</span>
         </div>
 
-        <!-- About the source / product -->
-        <div class="about">
-          <h2 class="about-title">Suppabase — open AI workspace</h2>
-          <p class="about-text">
-            A self-hosted chat &amp; build workspace powered by Cloudflare Workers AI.
-            RBAC, projects, document RAG, agent templates and usage metering —
-            full source you can read, fork and deploy.
-          </p>
-          <ul class="feat-list">
-            <li><span class="feat-ic">▹</span> Cloudflare Workers AI — deepseek-r1-distill-qwen-32b &amp; qwen2.5-coder</li>
-            <li><span class="feat-ic">▹</span> Role-based access, projects &amp; shareable conversations</li>
-            <li><span class="feat-ic">▹</span> Document RAG, vision &amp; agent templates with slash commands</li>
-          </ul>
-        </div>
+        <h1 class="art-title">{{ t('auth.heroTitle') }}</h1>
+        <p class="art-sub">{{ t('auth.heroSub') }}</p>
 
-        <!-- Guest account — try it read-only -->
-        <div class="guest-card">
-          <div class="guest-head">
-            <span class="guest-badge">Viewer</span>
-            <span class="guest-title">Tài khoản khách · chỉ xem</span>
-          </div>
-          <dl class="guest-creds">
-            <div><dt>Username</dt><dd>guest-suppabase</dd></div>
-            <div><dt>Password</dt><dd>guest@2026</dd></div>
-          </dl>
-          <button type="button" class="guest-fill" @click="useGuest">
-            Dùng tài khoản khách
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </button>
-        </div>
-
-        <div class="status-card">
-          <span class="s-dot"></span>
-          <div class="s-meta">
-            <div class="s-nm">Cloudflare Workers AI · connected</div>
-            <div class="s-sub">deepseek-r1-distill-qwen-32b · qwen2.5-coder-32b</div>
-          </div>
-          <span class="s-pill">cloud</span>
-        </div>
+        <div class="art-foot">© {{ year }} Suppabase</div>
       </div>
     </aside>
 
-    <!-- RIGHT: form -->
+    <!-- RIGHT: auth -->
     <section class="form-side">
-      <div class="top-row">
-        <div class="brand-mark"></div>
-        <div class="brand-name">Suppabase</div>
-      </div>
-
       <div class="form-wrap">
-        <form class="form" @submit.prevent="handleLogin" autocomplete="on" novalidate>
-          <div class="kicker">
-            <span class="dot"></span>
-            Local workspace
-          </div>
-          <h1 class="title">Welcome <em>back</em></h1>
-          <p class="subtitle">Sign in with your local credentials to continue to your Suppabase workspace.</p>
+        <div class="pane-stage" :style="{ height: stageHeight }">
+          <Transition name="pane" mode="out-in" @enter="measure" @after-leave="measure">
 
-          <!-- Username -->
-          <div class="field">
-            <div class="label-row">
-              <label for="username">Username</label>
+            <!-- ══════ EMAIL OTP ══════ -->
+            <div v-if="mode === 'otp'" key="otp" ref="paneEl" class="pane">
+              <!-- Step: email -->
+              <template v-if="otpStep === 'email'">
+                <h2 class="head">{{ t('auth.signIn') }}</h2>
+                <p class="head-sub">{{ t('auth.useEmail') }}</p>
+
+                <div class="field">
+                  <label class="lbl" for="otp-email">{{ t('auth.email') }}</label>
+                  <div class="inp-wrap" :class="{ invalid: fieldError === 'email' }">
+                    <span class="icn">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                    </span>
+                    <input id="otp-email" v-model="otpEmail" type="email" autocomplete="email"
+                           :placeholder="t('auth.emailPlaceholder')" :disabled="loading"
+                           @input="clearError" @keydown.enter.prevent="onSendOtp" autofocus />
+                  </div>
+                </div>
+
+                <div v-if="error" class="err-banner">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v6M12 17h.01"/></svg>
+                  {{ error }}
+                </div>
+
+                <button type="button" class="submit" :disabled="loading || !otpEmail" @click="onSendOtp">
+                  <span v-if="loading" class="spin"></span>
+                  <span class="lbl-btn">{{ loading ? t('auth.verifying') : t('auth.sendCode') }}</span>
+                  <svg v-if="!loading" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </button>
+
+                <p class="help">{{ t('auth.helpdesk') }}</p>
+                <button type="button" class="switch-link" @click="toggleMode">{{ t('auth.switchToPassword') }}</button>
+              </template>
+
+              <!-- Step: 6-digit code -->
+              <template v-else>
+                <h2 class="head">{{ t('auth.enterCode') }}</h2>
+                <p class="head-sub">{{ t('auth.codeSentTo', { email: otpEmail }) }}</p>
+
+                <div class="otp-boxes" :class="{ invalid: fieldError === 'code' }">
+                  <input v-for="i in 6" :key="i"
+                         :ref="el => otpRefs[i - 1] = el"
+                         class="otp-box"
+                         inputmode="numeric" autocomplete="one-time-code" maxlength="1"
+                         :value="otpDigits[i - 1]" :disabled="loading"
+                         @input="onDigitInput(i - 1, $event)"
+                         @keydown="onDigitKey(i - 1, $event)"
+                         @paste="onDigitPaste" />
+                </div>
+
+                <div v-if="error" class="err-banner">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v6M12 17h.01"/></svg>
+                  {{ error }}
+                </div>
+
+                <button type="button" class="submit" :disabled="loading || otpCode.length !== 6" @click="verifyOtpCode">
+                  <span v-if="loading" class="spin"></span>
+                  <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 4 9 8 10 4-1 8-5 8-10V6l-8-4z"/></svg>
+                  <span class="lbl-btn">{{ loading ? t('auth.verifying') : t('auth.signIn') }}</span>
+                </button>
+
+                <div class="otp-actions">
+                  <button type="button" class="link-btn" @click="resetOtp">← {{ t('auth.changeEmail') }}</button>
+                  <button type="button" class="link-btn muted" :disabled="resendIn > 0 || loading" @click="onSendOtp">
+                    {{ resendIn > 0 ? t('auth.resendIn', { s: resendIn }) : t('auth.resendCode') }}
+                  </button>
+                </div>
+
+                <p class="help">{{ t('auth.helpdesk') }}</p>
+              </template>
             </div>
-            <div class="inp-wrap" :class="{ invalid: fieldError === 'username' }">
-              <span class="icn">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-              </span>
-              <input
-                id="username"
-                v-model="form.username"
-                type="text"
-                autocomplete="username"
-                placeholder="admin-suppabase"
-                :disabled="loading"
-                @input="clearError"
-                autofocus
-              />
+
+            <!-- ══════ PASSWORD ══════ -->
+            <div v-else key="password" ref="paneEl" class="pane">
+              <h2 class="head">{{ t('auth.signIn') }}</h2>
+              <p class="head-sub">{{ t('auth.usePassword') }}</p>
+
+              <div class="field">
+                <label class="lbl" for="username">{{ t('auth.username') }}</label>
+                <div class="inp-wrap" :class="{ invalid: fieldError === 'username' }">
+                  <span class="icn">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                  </span>
+                  <input id="username" v-model="form.username" type="text" autocomplete="username"
+                         placeholder="admin-suppabase" :disabled="loading" @input="clearError" />
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="lbl" for="password">{{ t('auth.password') }}</label>
+                <div class="inp-wrap" :class="{ invalid: fieldError === 'password' }">
+                  <span class="icn">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3"/></svg>
+                  </span>
+                  <input id="password" v-model="form.password" type="password" autocomplete="current-password"
+                         placeholder="••••••••" :disabled="loading"
+                         @input="clearError" @keydown="detectCaps" @keyup="detectCaps" @blur="capsOn = false"
+                         @keydown.enter.prevent="handleLogin" />
+                </div>
+                <div v-if="capsOn" class="caps-hint">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                  Caps Lock is on
+                </div>
+              </div>
+
+              <label class="remember">
+                <input type="checkbox" v-model="rememberMe" class="remember-chk" />
+                <span class="remember-box" :class="{ checked: rememberMe }">
+                  <svg v-if="rememberMe" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>
+                </span>
+                <span class="remember-lbl">{{ t('auth.rememberMe') }}</span>
+              </label>
+
+              <div v-if="error" class="err-banner">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v6M12 17h.01"/></svg>
+                {{ error }}
+              </div>
+
+              <button type="button" class="submit" :disabled="loading || !form.username || !form.password" @click="handleLogin">
+                <span v-if="loading" class="spin"></span>
+                <span class="lbl-btn">{{ loading ? 'Signing in…' : t('auth.signIn') }}</span>
+                <svg v-if="!loading" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+
+              <button type="button" class="guest-link" @click="useGuest">{{ t('auth.useGuest') }}</button>
+              <button type="button" class="switch-link" @click="toggleMode">{{ t('auth.switchToOtp') }}</button>
             </div>
-          </div>
 
-          <!-- Password -->
-          <div class="field">
-            <div class="label-row">
-              <label for="password">Password</label>
-            </div>
-            <div class="inp-wrap" :class="{ invalid: fieldError === 'password' }">
-              <span class="icn">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3"/></svg>
-              </span>
-              <input
-                id="password"
-                v-model="form.password"
-                type="password"
-                autocomplete="current-password"
-                placeholder="••••••••"
-                :disabled="loading"
-                @input="clearError"
-                @keydown="detectCaps"
-                @keyup="detectCaps"
-                @blur="capsOn = false"
-              />
-            </div>
-            <div v-if="capsOn" class="caps-hint">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-              Caps Lock is on
-            </div>
-          </div>
-
-          <!-- Remember me -->
-          <label class="remember">
-            <input type="checkbox" v-model="rememberMe" class="remember-chk" />
-            <span class="remember-box" :class="{ checked: rememberMe }">
-              <svg v-if="rememberMe" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>
-            </span>
-            <span class="remember-lbl">Remember me</span>
-          </label>
-
-          <!-- Error -->
-          <div v-if="error" class="err-banner">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v6M12 17h.01"/></svg>
-            {{ error }}
-          </div>
-
-          <!-- Submit -->
-          <button type="submit" class="submit" :disabled="loading || !form.username || !form.password">
-            <span v-if="loading" class="spin"></span>
-            <span class="lbl">{{ loading ? 'Signing in…' : 'Sign in' }}</span>
-            <svg v-if="!loading" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </button>
-
-          <div class="divider">local auth</div>
-
-          <!-- Info note -->
-          <div class="local-note">
-            <span class="note-ic">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1 3 5v6c0 5 3.5 9 9 11 5.5-2 9-6 9-11V5l-9-4z"/></svg>
-            </span>
-            <div>
-              This workspace authenticates against the local user store. Contact your admin to provision an account.
-            </div>
-          </div>
-
-          <div class="legal">
-            <span>Suppabase · cloud build</span>
-            <span class="spacer"></span>
-            <span>Cloudflare Workers AI</span>
-          </div>
-        </form>
+          </Transition>
+        </div>
       </div>
     </section>
   </div>
@@ -174,6 +166,8 @@ definePageMeta({ layout: false })
 
 const auth = useAuthStore()
 const { t, tError } = useI18n()
+const year = new Date().getFullYear()
+
 const form = reactive({ username: '', password: '' })
 const loading = ref(false)
 const loaderVisible = ref(false)
@@ -182,22 +176,64 @@ const fieldError = ref('')
 const capsOn = ref(false)
 const rememberMe = ref(false)
 
-onMounted(() => {
-  const saved = localStorage.getItem('nocturne_remember')
-  if (saved) {
-    form.username = saved
-    rememberMe.value = true
-  }
-})
+// ── Mode + OTP state ─────────────────────────────────────────
+const mode = ref('otp')             // 'otp' default per design | 'password'
+const otpStep = ref('email')        // 'email' | 'code'
+const otpEmail = ref('')
+const otpDigits = ref(['', '', '', '', '', ''])
+const otpRefs = ref([])
+const otpCode = computed(() => otpDigits.value.join(''))
+const resendIn = ref(0)
+let resendTimer = null
 
-function clearError() {
-  error.value = ''
-  fieldError.value = ''
+// ── Smooth height transition (no flash) ──────────────────────
+const paneEl = ref(null)
+const stageHeight = ref('auto')
+function measure() {
+  nextTick(() => {
+    const el = paneEl.value
+    if (el) stageHeight.value = el.offsetHeight + 'px'
+  })
+}
+onMounted(() => measure())
+
+function toggleMode() {
+  mode.value = mode.value === 'password' ? 'otp' : 'password'
+  clearError()
+  otpStep.value = 'email'
+  otpDigits.value = ['', '', '', '', '', '']
+  stopResendCountdown()
 }
 
-// Fill the guest (viewer) credentials and sign in straight away so visitors can
-// explore the workspace in one click. Keep these in sync with migration
-// 055_guest_viewer_account.sql.
+function startResendCountdown() {
+  stopResendCountdown()
+  resendIn.value = 60
+  resendTimer = setInterval(() => {
+    resendIn.value -= 1
+    if (resendIn.value <= 0) stopResendCountdown()
+  }, 1000)
+}
+function stopResendCountdown() {
+  if (resendTimer) { clearInterval(resendTimer); resendTimer = null }
+  resendIn.value = 0
+}
+onBeforeUnmount(stopResendCountdown)
+
+function resetOtp() {
+  clearError()
+  otpStep.value = 'email'
+  otpDigits.value = ['', '', '', '', '', '']
+  stopResendCountdown()
+  measure()
+}
+
+onMounted(() => {
+  const saved = localStorage.getItem('nocturne_remember')
+  if (saved) { form.username = saved; rememberMe.value = true }
+})
+
+function clearError() { error.value = ''; fieldError.value = '' }
+
 function useGuest() {
   clearError()
   form.username = 'guest-suppabase'
@@ -205,44 +241,18 @@ function useGuest() {
   handleLogin()
 }
 
-function detectCaps(e) {
-  capsOn.value = e.getModifierState?.('CapsLock') ?? false
-}
+function detectCaps(e) { capsOn.value = e.getModifierState?.('CapsLock') ?? false }
 
 async function handleLogin() {
-  error.value = ''
-  fieldError.value = ''
-
-  if (!form.username.trim()) {
-    fieldError.value = 'username'
-    error.value = t('auth.username') + ' ' + t('common.no').toLowerCase()
-    return
-  }
-  if (!form.password) {
-    fieldError.value = 'password'
-    error.value = t('auth.password') + ' ' + t('common.no').toLowerCase()
-    return
-  }
-
+  clearError()
+  if (!form.username.trim()) { fieldError.value = 'username'; error.value = t('auth.username') + ' ' + t('common.no').toLowerCase(); return }
+  if (!form.password) { fieldError.value = 'password'; error.value = t('auth.password') + ' ' + t('common.no').toLowerCase(); return }
   loading.value = true
   try {
     await auth.login(form.username.trim(), form.password)
-    if (rememberMe.value) {
-      localStorage.setItem('nocturne_remember', form.username.trim())
-    } else {
-      localStorage.removeItem('nocturne_remember')
-    }
-    // Pre-warm permissions/modules/roles so the next page renders the full
-    // sidebar/menu on first paint instead of showing only public entries.
-    await Promise.all([
-      auth.fetchPermissions(),
-      auth.fetchModules(),
-      auth.fetchRoles(),
-    ])
-    loaderVisible.value = true
-    useToast().show(t('auth.signedIn'), 'success')
-    await new Promise(r => setTimeout(r, 800))
-    navigateTo('/c')
+    if (rememberMe.value) localStorage.setItem('nocturne_remember', form.username.trim())
+    else localStorage.removeItem('nocturne_remember')
+    await finishLogin()
   } catch (err) {
     loaderVisible.value = false
     error.value = tError(err, t('errors.ERR_INVALID_CREDENTIALS'))
@@ -250,442 +260,258 @@ async function handleLogin() {
     loading.value = false
   }
 }
+
+async function finishLogin() {
+  await Promise.all([auth.fetchPermissions(), auth.fetchModules(), auth.fetchRoles()])
+  loaderVisible.value = true
+  useToast().show(t('auth.signedIn'), 'success')
+  await new Promise(r => setTimeout(r, 800))
+  navigateTo('/c')
+}
+
+// ── Email OTP actions ────────────────────────────────────────
+async function onSendOtp() {
+  clearError()
+  const email = otpEmail.value.trim()
+  if (!email) { fieldError.value = 'email'; error.value = t('auth.email') + ' ' + t('common.no').toLowerCase(); return }
+  loading.value = true
+  try {
+    await auth.requestOtp(email)
+    otpStep.value = 'code'
+    otpDigits.value = ['', '', '', '', '', '']
+    startResendCountdown()
+    useToast().show(t('auth.otpSentNote', { email }), 'info', 4000)
+    nextTick(() => { measure(); otpRefs.value[0]?.focus() })
+  } catch (err) {
+    error.value = tError(err, t('errors.ERR_VALIDATION'))
+  } finally {
+    loading.value = false
+  }
+}
+
+// 6-box input handlers
+function onDigitInput(i, e) {
+  const v = e.target.value.replace(/\D/g, '')
+  clearError()
+  if (!v) { otpDigits.value[i] = ''; return }
+  // take last char typed; if user pasted multiple, distribute
+  const chars = v.split('')
+  otpDigits.value[i] = chars[0]
+  let j = i
+  for (let k = 1; k < chars.length && j + 1 < 6; k++) { j++; otpDigits.value[j] = chars[k] }
+  const next = Math.min(j + 1, 5)
+  nextTick(() => otpRefs.value[next]?.focus())
+  if (otpCode.value.length === 6) verifyOtpCode()
+}
+function onDigitKey(i, e) {
+  if (e.key === 'Backspace' && !otpDigits.value[i] && i > 0) {
+    otpDigits.value[i - 1] = ''
+    nextTick(() => otpRefs.value[i - 1]?.focus())
+  } else if (e.key === 'ArrowLeft' && i > 0) {
+    otpRefs.value[i - 1]?.focus()
+  } else if (e.key === 'ArrowRight' && i < 5) {
+    otpRefs.value[i + 1]?.focus()
+  }
+}
+function onDigitPaste(e) {
+  e.preventDefault()
+  const txt = (e.clipboardData?.getData('text') || '').replace(/\D/g, '').slice(0, 6)
+  if (!txt) return
+  const arr = ['', '', '', '', '', '']
+  for (let k = 0; k < txt.length; k++) arr[k] = txt[k]
+  otpDigits.value = arr
+  clearError()
+  nextTick(() => otpRefs.value[Math.min(txt.length, 5)]?.focus())
+  if (txt.length === 6) verifyOtpCode()
+}
+
+async function verifyOtpCode() {
+  if (loading.value || otpCode.value.length !== 6) return
+  loading.value = true
+  try {
+    await auth.loginWithOtp(otpEmail.value.trim(), otpCode.value)
+    await finishLogin()
+  } catch (err) {
+    loaderVisible.value = false
+    error.value = tError(err, t('errors.ERR_OTP_INVALID'))
+    otpDigits.value = ['', '', '', '', '', '']
+    fieldError.value = 'code'
+    nextTick(() => otpRefs.value[0]?.focus())
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <style scoped>
-/* ── Shell ─────────────────────────────────────── */
 .shell {
   display: grid;
-  /* Intro/showcase on the LEFT, sign-in form on the RIGHT. */
-  grid-template-columns: 1.05fr 0.95fr;
+  grid-template-columns: 1fr 1fr;
   min-height: 100vh;
-  background: transparent;   /* để lộ mesh gradient của body */
   color: var(--fg);
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.55;
   position: relative;
   overflow: hidden;
 }
-
 .grain {
-  position: fixed; inset: 0;
-  pointer-events: none; z-index: 1000;
+  position: fixed; inset: 0; pointer-events: none; z-index: 1000;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.04 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  opacity: 0.55;
-  mix-blend-mode: overlay;
+  opacity: 0.5; mix-blend-mode: overlay;
 }
 
-/* ── Form side ─────────────────────────────────── */
-.form-side {
-  display: flex; flex-direction: column;
-  padding: 28px 40px;
-  min-width: 0;
+/* ── Left: blue hero ───────────────────────────── */
+.art-side {
   position: relative;
-  z-index: 1;
+  background: linear-gradient(135deg, #3b6df0 0%, #2f55d8 55%, #2545c0 100%);
+  padding: 48px 56px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
 }
+.art-inner { position: relative; z-index: 2; display: flex; flex-direction: column; height: 100%; }
+.brand-row { display: flex; align-items: center; gap: 11px; }
+.brand-logo {
+  width: 40px; height: 40px; border-radius: 11px;
+  background: rgba(255,255,255,0.16);
+  display: grid; place-items: center; color: #fff;
+}
+.brand-name { font-size: 20px; font-weight: 700; color: #fff; }
 
-.top-row {
-  display: flex; align-items: center; gap: 10px;
-}
-.brand-mark {
-  width: 22px; height: 22px;
-  border-radius: 5px;
-  background: conic-gradient(from 210deg, var(--accent), color-mix(in oklab, var(--accent) 40%, #fff) 40%, var(--accent) 80%, var(--accent));
-  box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.4), 0 0 12px color-mix(in oklab, var(--accent) 28%, transparent);
-  position: relative; flex-shrink: 0;
-}
-.brand-mark::after {
-  content: ""; position: absolute; inset: 6px;
-  background: var(--bg); border-radius: 1.5px;
-}
-.brand-name {
+.art-title {
   font-family: var(--font-serif);
-  font-size: 20px; letter-spacing: 0.005em; line-height: 1;
+  font-size: 56px; font-weight: 700; line-height: 1.05;
+  color: #fff; margin: auto 0 0; letter-spacing: -0.01em;
+  white-space: pre-line;
+}
+.art-sub {
+  color: rgba(255,255,255,0.82);
+  font-size: 16px; line-height: 1.6; margin: 24px 0 0; max-width: 420px;
+}
+.art-foot {
+  margin-top: auto; padding-top: 40px;
+  color: rgba(255,255,255,0.6); font-size: 12.5px;
 }
 
-.form-wrap {
-  flex: 1; display: grid; place-items: center; padding: 20px 0;
+/* ── Right: auth ───────────────────────────────── */
+.form-side {
+  display: grid; place-items: center;
+  background:
+    radial-gradient(70% 50% at 100% 0%, color-mix(in oklab, #ff8fb1 14%, transparent), transparent 70%),
+    radial-gradient(60% 50% at 0% 100%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 70%),
+    var(--bg-elev);
+  padding: 40px;
 }
-.form { width: 100%; max-width: 380px; }
+.form-wrap { width: 100%; max-width: 380px; }
+.pane-stage { position: relative; transition: height .28s cubic-bezier(.4,0,.2,1); }
+.pane { display: flex; flex-direction: column; }
 
-.kicker {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--fg-mute); margin-bottom: 18px;
-}
-.dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
-}
+/* Cross-fade between panes (out-in → no overlap, no flash) */
+.pane-enter-active { transition: opacity .2s ease, transform .2s ease; }
+.pane-leave-active { transition: opacity .14s ease, transform .14s ease; }
+.pane-enter-from { opacity: 0; transform: translateY(8px); }
+.pane-leave-to   { opacity: 0; transform: translateY(-8px); }
 
-.title {
-  font-family: var(--font-serif);
-  font-size: 44px; line-height: 1.05; font-weight: 400;
-  letter-spacing: -0.01em; margin: 0 0 8px;
-}
-.title em { color: var(--accent); font-style: italic; }
-.subtitle {
-  color: var(--fg-dim); font-size: 14px;
-  margin: 0 0 32px; max-width: 340px;
-}
+.head { font-family: var(--font-serif); font-size: 30px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+.head-sub { color: var(--fg-mute); font-size: 14px; margin: 0 0 28px; }
 
-/* Fields */
-.field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
-.label-row { display: flex; align-items: center; gap: 10px; }
-.label-row label {
-  font-family: var(--font-mono);
-  font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--fg-mute);
-}
+.field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+.lbl { font-size: 12px; font-weight: 700; color: var(--fg-dim); }
 
 .inp-wrap {
   display: flex; align-items: center;
   background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%); backdrop-filter: blur(12px) saturate(160%);
   border: 1px solid var(--line-2);
-  border-radius: var(--radius-2xl); height: 44px;
-  transition: border-color .15s, background .15s, box-shadow .2s;
+  border-radius: 999px; height: 50px;
+  transition: border-color .15s, box-shadow .2s;
 }
 .inp-wrap:focus-within {
   border-color: color-mix(in oklab, var(--accent) 50%, transparent);
-  background: var(--bg-elev);
-  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 15%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 14%, transparent);
 }
-.inp-wrap.invalid {
-  border-color: color-mix(in oklab, var(--danger) 60%, transparent);
-  background: color-mix(in oklab, var(--danger) 5%, var(--bg-elev));
-}
-.inp-wrap.invalid .icn { color: var(--danger); }
-
-.icn {
-  width: 38px; display: grid; place-items: center;
-  color: var(--fg-mute); flex-shrink: 0;
-}
-.inp-wrap input {
-  flex: 1; min-width: 0; border: 0; outline: none;
-  background: transparent; color: var(--fg);
-  font-size: 14px; font-family: inherit;
-  padding: 0 12px 0 0;
-}
+.inp-wrap.invalid { border-color: color-mix(in oklab, var(--danger) 60%, transparent); }
+.icn { width: 44px; display: grid; place-items: center; color: var(--fg-mute); flex-shrink: 0; }
+.inp-wrap input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--fg); font-size: 14px; font-family: inherit; padding: 0 16px 0 0; }
 .inp-wrap input::placeholder { color: var(--fg-faint); }
-.inp-wrap input:disabled { opacity: 0.5; }
 
-.reveal-btn {
-  appearance: none; background: transparent; border: 0;
-  color: var(--fg-mute); padding: 0 12px; height: 100%;
-  display: grid; place-items: center; cursor: pointer;
-  transition: color .12s;
-}
-.reveal-btn:hover { color: var(--fg); }
+.caps-hint { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10.5px; color: var(--warn); margin-top: 7px; }
 
-.caps-hint {
-  display: flex; align-items: center; gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 10.5px; color: var(--warn);
+/* 6-box OTP */
+.otp-boxes { display: flex; gap: 12px; justify-content: space-between; margin: 4px 0 8px; }
+.otp-box {
+  flex: 1; aspect-ratio: 1 / 1; min-width: 0; max-width: 64px;
+  text-align: center;
+  background: var(--glass-bg);
+  border: 1.5px solid var(--line-2);
+  border-radius: 14px;
+  color: var(--fg);
+  font-family: var(--font-mono); font-size: 26px; font-weight: 600;
+  outline: none;
+  transition: border-color .15s, box-shadow .2s, background .15s;
 }
-
-/* Remember me */
-.remember {
-  display: inline-flex; align-items: center; gap: 9px;
-  cursor: pointer; user-select: none;
-  margin-bottom: 16px;
-}
-.remember-chk { display: none; }
-.remember-box {
-  width: 16px; height: 16px; border-radius: 4px;
-  border: 1px solid var(--line-2);
-  background: var(--bg-elev);
-  display: grid; place-items: center;
-  flex-shrink: 0;
-  transition: border-color .13s, background .13s;
-  color: var(--accent-fg);
-}
-.remember:hover .remember-box { border-color: color-mix(in oklab, var(--accent) 50%, transparent); }
-.remember-box.checked {
-  background: var(--accent);
+.otp-box:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 16%, transparent);
 }
-.remember-lbl {
-  font-family: var(--font-mono);
-  font-size: 11px; color: var(--fg-mute);
-  transition: color .13s;
-}
-.remember:hover .remember-lbl { color: var(--fg); }
+.otp-boxes.invalid .otp-box { border-color: color-mix(in oklab, var(--danger) 55%, transparent); }
 
-/* Error */
 .err-banner {
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 12px;
+  padding: 10px 12px; margin-bottom: 14px;
   background: color-mix(in oklab, var(--danger) 8%, transparent);
   border: 1px solid color-mix(in oklab, var(--danger) 30%, transparent);
-  border-radius: 8px;
-  color: var(--danger);
-  font-size: 12.5px;
-  margin-bottom: 14px;
+  border-radius: 10px; color: var(--danger); font-size: 12.5px;
   animation: shake .3s cubic-bezier(.36,.07,.19,.97) both;
 }
-@keyframes shake {
-  10%, 90% { transform: translateX(-2px); }
-  20%, 80% { transform: translateX(3px); }
-  30%, 50%, 70% { transform: translateX(-3px); }
-  40%, 60% { transform: translateX(3px); }
-}
+@keyframes shake { 10%,90%{transform:translateX(-2px)} 20%,80%{transform:translateX(3px)} 30%,50%,70%{transform:translateX(-3px)} 40%,60%{transform:translateX(3px)} }
 
-/* Submit */
+.remember { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; margin-bottom: 18px; }
+.remember-chk { display: none; }
+.remember-box { width: 16px; height: 16px; border-radius: 5px; border: 1px solid var(--line-2); background: var(--bg-elev); display: grid; place-items: center; color: var(--accent-fg); transition: background .13s, border-color .13s; }
+.remember-box.checked { background: var(--accent); border-color: var(--accent); }
+.remember-lbl { font-size: 12.5px; color: var(--fg-mute); }
+
 .submit {
   appearance: none; border: 0;
-  width: 100%; height: 44px; border-radius: 999px;
+  width: 100%; height: 50px; border-radius: 999px; margin-top: 6px;
   background: var(--accent); color: var(--accent-fg);
-  font-weight: 600; font-size: 14px; font-family: inherit;
+  font-weight: 700; font-size: 15px; font-family: inherit;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  cursor: pointer;
-  box-shadow: var(--shadow-pill);
-  transition: background .15s, transform .12s var(--spring), opacity .15s;
-  margin-top: 4px;
+  cursor: pointer; box-shadow: var(--shadow-pill);
+  transition: filter .15s, transform .12s var(--spring), opacity .15s;
 }
-.submit:hover { background: color-mix(in oklab, var(--accent) 92%, white); }
-.submit:active { transform: translateY(1px); }
-.submit:disabled {
-  background: var(--line); color: var(--fg-mute);
-  cursor: not-allowed; transform: none;
-}
-.spin {
-  width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid color-mix(in oklab, var(--accent-fg) 30%, transparent); border-top-color: var(--accent-fg);
-  animation: spin .8s linear infinite;
-}
+.submit:hover:not(:disabled) { filter: brightness(1.05); }
+.submit:active:not(:disabled) { transform: translateY(1px); }
+.submit:disabled { opacity: 0.55; cursor: not-allowed; }
+.spin { width: 15px; height: 15px; border-radius: 50%; border: 2px solid color-mix(in oklab, var(--accent-fg) 30%, transparent); border-top-color: var(--accent-fg); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Divider */
-.divider {
-  display: flex; align-items: center; gap: 12px;
-  margin: 22px 0;
-  color: var(--fg-mute);
-  font-family: var(--font-mono);
-  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
-}
-.divider::before, .divider::after {
-  content: ""; flex: 1; height: 1px;
-  background: var(--line);
-}
+.help { text-align: center; color: var(--fg-mute); font-size: 12.5px; margin: 18px 0 0; }
 
-/* Local note */
-.local-note {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 12px 14px;
-  border: 1px dashed var(--line-2);
-  border-radius: 10px;
-  background: var(--line);
-  color: var(--fg-dim);
-  font-size: 12.5px; line-height: 1.5;
-}
-.note-ic { color: var(--accent); margin-top: 1px; flex-shrink: 0; }
+.otp-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
+.link-btn { appearance: none; background: transparent; border: 0; color: var(--accent); font-family: inherit; font-size: 13px; cursor: pointer; padding: 4px 0; }
+.link-btn:hover:not(:disabled) { text-decoration: underline; }
+.link-btn.muted { color: var(--fg-mute); }
+.link-btn:disabled { color: var(--fg-faint); cursor: default; }
 
-/* Legal */
-.legal {
-  margin-top: 28px;
-  display: flex; align-items: center; gap: 16px;
-  color: var(--fg-faint);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
+.guest-link, .switch-link {
+  appearance: none; background: transparent; border: 0;
+  width: 100%; text-align: center; cursor: pointer;
+  font-family: inherit; font-size: 13px; padding: 6px 0;
 }
-.spacer { flex: 1; }
+.guest-link { color: var(--fg-mute); margin-top: 16px; }
+.guest-link:hover { color: var(--fg); }
+.switch-link { color: var(--accent); margin-top: 4px; font-weight: 500; }
+.switch-link:hover { text-decoration: underline; }
 
-/* ── Art side ──────────────────────────────────── */
-.art-side {
-  position: relative;
-  background:
-    radial-gradient(80% 60% at 100% 0%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 70%),
-    radial-gradient(60% 60% at 0% 100%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 70%),
-    var(--bg-elev);
-  border-right: 1px solid var(--line);
-  overflow: hidden;
-  display: flex; flex-direction: column;
-  padding: 40px;
-}
-.art-side::before {
-  content: "";
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, black 30%, transparent 80%);
-}
-.art-side::after {
-  content: "";
-  position: absolute;
-  top: 30%; left: 50%; width: 60%; aspect-ratio: 1;
-  transform: translate(-50%, -40%);
-  background: radial-gradient(closest-side, color-mix(in oklab, var(--accent) 24%, transparent), transparent 70%);
-  filter: blur(50px);
-}
-
-.art-inner {
-  position: relative; z-index: 2;
-  display: flex; flex-direction: column; height: 100%;
-}
-.art-tag {
-  align-self: flex-start;
-  font-family: var(--font-mono);
-  font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--fg-dim);
-  padding: 4px 10px;
-  border: 1px solid var(--line-2); border-radius: 999px;
-  background: var(--line);
-}
-
-.art-quote { margin-top: 36px; max-width: 480px; }
-.q-mark {
-  font-family: var(--font-serif);
-  font-style: italic; color: var(--accent);
-  font-size: 72px; line-height: 1; margin-bottom: -18px; opacity: 0.8;
-}
-.q {
-  font-family: var(--font-serif);
-  font-size: 32px; line-height: 1.18;
-  letter-spacing: -0.01em; color: var(--fg);
-}
-.q em { font-style: italic; color: var(--accent); }
-.attr {
-  margin-top: 22px;
-  font-family: var(--font-mono);
-  font-size: 11.5px; color: var(--fg-mute);
-  letter-spacing: 0.04em;
-  display: flex; align-items: center; gap: 10px;
-}
-.attr::before { content: ""; width: 22px; height: 1px; background: var(--line-2); }
-
-/* About / showcase */
-.about { margin-top: 30px; max-width: 480px; }
-.about-title {
-  font-family: var(--font-serif);
-  font-size: 19px; font-weight: 400; margin: 0 0 8px;
-  color: var(--fg); letter-spacing: -0.005em;
-}
-.about-text {
-  color: var(--fg-dim); font-size: 13px; line-height: 1.6; margin: 0 0 14px;
-}
-.feat-list {
-  list-style: none; margin: 0; padding: 0;
-  display: flex; flex-direction: column; gap: 8px;
-}
-.feat-list li {
-  display: flex; align-items: flex-start; gap: 9px;
-  font-size: 12.5px; color: var(--fg-dim); line-height: 1.5;
-}
-.feat-ic { color: var(--accent); flex-shrink: 0; }
-
-/* Guest credentials card */
-.guest-card {
-  margin-top: 24px; max-width: 480px;
-  padding: 16px;
-  background: color-mix(in oklab, var(--accent) 7%, transparent);
-  border: 1px solid color-mix(in oklab, var(--accent) 28%, transparent);
-  border-radius: 14px;
-}
-.guest-head {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
-}
-.guest-badge {
-  font-family: var(--font-mono);
-  font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--accent-fg); background: var(--accent);
-  padding: 3px 9px; border-radius: 999px; font-weight: 600;
-}
-.guest-title { font-size: 13px; color: var(--fg); }
-.guest-creds {
-  display: flex; gap: 28px; margin: 0 0 14px;
-}
-.guest-creds div { display: flex; flex-direction: column; gap: 3px; }
-.guest-creds dt {
-  font-family: var(--font-mono);
-  font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--fg-mute);
-}
-.guest-creds dd {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 13.5px; color: var(--fg);
-}
-.guest-fill {
-  appearance: none; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 9px 16px; border-radius: 999px;
-  background: var(--accent); color: var(--accent-fg);
-  border: 0; font-family: inherit; font-size: 13px; font-weight: 600;
-  transition: background .15s, transform .12s var(--spring);
-}
-.guest-fill:hover { background: color-mix(in oklab, var(--accent) 92%, white); }
-.guest-fill:active { transform: translateY(1px); }
-
-/* Status card */
-.status-card {
-  margin-top: auto;
-  padding: 14px 16px;
-  background: color-mix(in oklab, var(--bg-elev) 80%, transparent);
-  border: 1px solid var(--line-2);
-  border-radius: 12px;
-  backdrop-filter: blur(8px);
-  display: flex; align-items: center; gap: 14px;
-}
-.s-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--ok);
-  box-shadow: 0 0 10px color-mix(in oklab, var(--ok) 60%, transparent);
-  flex-shrink: 0;
-}
-.s-meta { flex: 1; min-width: 0; }
-.s-nm { font-size: 13px; color: var(--fg); }
-.s-sub {
-  font-family: var(--font-mono);
-  font-size: 11px; color: var(--fg-mute); margin-top: 2px;
-}
-.s-pill {
-  font-family: var(--font-mono);
-  font-size: 10.5px; color: var(--fg-dim);
-  padding: 4px 9px;
-  border: 1px solid var(--line-2); border-radius: 999px;
-}
-
-/* ── Responsive ────────────────────────────────── */
-@media (max-width: 1024px) {
-  .form-side { padding: 24px 32px; }
-  .title { font-size: 38px; }
-  .art-side { padding: 28px; }
-  .q { font-size: 28px; }
-}
-
-/* Tablet & below: stack — form first (so visitors land on sign-in), then the
-   intro + guest card below it. We don't hide the intro anymore because it holds
-   the guest credentials. */
+/* ── Responsive ───────────────────────────────── */
 @media (max-width: 920px) {
-  .shell { grid-template-columns: 1fr; overflow: auto; min-height: auto; }
-  .form-side { order: 1; padding: 28px 24px; }
-  .art-side {
-    order: 2;
-    border-right: 0; border-top: 1px solid var(--line);
-    padding: 32px 24px;
-  }
-  .art-inner { height: auto; }
-  .art-quote { display: none; }       /* keep the stacked view tight */
-  .status-card { margin-top: 24px; }
-  .title { font-size: 36px; }
+  .shell { grid-template-columns: 1fr; }
+  .art-side { display: none; }
+  .form-side { min-height: 100vh; padding: 24px; }
 }
-
-@media (max-width: 768px) {
-  .form-side { padding: 22px 18px; }
-  .art-side { padding: 24px 18px; }
-  .title { font-size: 32px; }
-  .subtitle { font-size: 13px; margin-bottom: 24px; }
-  .inp-wrap { height: 46px; }
-  .submit { height: 46px; font-size: 15px; }
-  .legal { flex-direction: column; gap: 4px; font-size: 10px; }
-  .spacer { display: none; }
-  .guest-creds { gap: 20px; }
+@media (max-width: 480px) {
+  .otp-boxes { gap: 8px; }
+  .otp-box { border-radius: 11px; font-size: 22px; }
+  .head { font-size: 26px; }
 }
 </style>

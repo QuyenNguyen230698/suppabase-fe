@@ -47,6 +47,29 @@
           </div>
         </div>
 
+        <!-- Attachments on the question — click to preview (chat-style popup) -->
+        <div v-if="pairFiles.length" class="att-block">
+          <div class="qa-label">
+            <span class="qa-tag file">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </span>
+            File đính kèm ({{ pairFiles.length }})
+          </div>
+          <div class="att-chips">
+            <button
+              v-for="f in pairFiles"
+              :key="f.document_id"
+              class="att-chip"
+              :class="{ expired: isFileExpired(f) }"
+              @click="$emit('preview-file', f)"
+              :title="isFileExpired(f) ? `${f.name} — đã hết hạn` : `Xem ${f.name}`"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              {{ f.name }}
+            </button>
+          </div>
+        </div>
+
         <div class="qa-block">
           <div class="qa-label"><span class="qa-tag">Q</span> Question</div>
           <pre class="qa-text">{{ row.question }}</pre>
@@ -73,6 +96,19 @@
               </span>
             </div>
             <pre class="thread-content">{{ m.content }}</pre>
+            <div v-if="(m.attached_files || []).length" class="att-chips thread-att">
+              <button
+                v-for="f in m.attached_files"
+                :key="f.document_id"
+                class="att-chip"
+                :class="{ expired: isFileExpired(f) }"
+                @click="$emit('preview-file', f)"
+                :title="isFileExpired(f) ? `${f.name} — đã hết hạn` : `Xem ${f.name}`"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                {{ f.name }}
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -115,7 +151,7 @@
 const props = defineProps({
   row: { type: Object, required: true },
 })
-const emit = defineEmits(['close', 'flagged'])
+const emit = defineEmits(['close', 'flagged', 'preview-file'])
 
 const { apiFetch } = useApi()
 const { show: showToast } = useToast()
@@ -138,6 +174,13 @@ const flagForm = reactive({
   reason: props.row?.flag_reason || '',
   note:   props.row?.note || '',
 })
+
+// Files attached to this Q&A pair (the question's user message).
+const pairFiles = computed(() => props.row?.attached_files || [])
+function isFileExpired(f) {
+  if (!f?.expires_at) return false
+  return new Date(f.expires_at) < new Date()
+}
 
 const latency = computed(() => {
   if (!props.row?.asked_at || !props.row?.answered_at) return '—'
@@ -332,6 +375,32 @@ function formatDate(d) {
   background: color-mix(in oklab, var(--info, #38bdf8) 12%, transparent);
   color: var(--info, #38bdf8);
 }
+.qa-tag.file {
+  background: color-mix(in oklab, var(--info, #38bdf8) 12%, transparent);
+  color: var(--info, #38bdf8);
+}
+
+/* Attachment chips (pair + thread) */
+.att-block { display: flex; flex-direction: column; gap: 6px; }
+.att-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.att-chips.thread-att { margin-top: 8px; }
+.att-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px;
+  background: color-mix(in oklab, var(--info, #38bdf8) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--info, #38bdf8) 25%, transparent);
+  color: var(--info, #38bdf8);
+  border-radius: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  max-width: 240px;
+  transition: filter .12s, background .12s;
+}
+.att-chip span, .att-chip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.att-chip:hover { filter: brightness(1.15); background: color-mix(in oklab, var(--info, #38bdf8) 14%, transparent); }
+.att-chip.expired { opacity: .6; border-style: dashed; }
+
 .qa-text {
   background: var(--bg);
   border: 1px solid var(--line);

@@ -76,6 +76,33 @@ export const useAuthStore = defineStore('auth', () => {
     return { user: res.user, must_change_password: res.must_change_password }
   }
 
+  // Email OTP — step 1: ask the server to email a code. Always resolves (server
+  // returns { success: true } even for unknown emails to avoid enumeration).
+  async function requestOtp(email) {
+    return await $fetch(`${config.public.apiBase}/api/auth/send-otp`, {
+      method: 'POST',
+      body: { email },
+    })
+  }
+
+  // Email OTP — step 2: verify the code. On success the response mirrors
+  // password login, so we set tokens/user identically.
+  async function loginWithOtp(email, code) {
+    const res = await $fetch(`${config.public.apiBase}/api/auth/verify-otp`, {
+      method: 'POST',
+      body: { email, code },
+    })
+    tokenCookie.value = res.token
+    user.value = res.user
+    permissions.value = null
+    modules.value = null
+    if (res.user?.language) {
+      const lang = res.user.language.toLowerCase().slice(0, 2)
+      if (['en', 'vi'].includes(lang)) useI18n().setLocale(lang)
+    }
+    return { user: res.user, must_change_password: res.must_change_password }
+  }
+
   async function fetchPermissions() {
     if (!tokenCookie.value) return
     try {
@@ -163,6 +190,8 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     isSuperAdmin,
     login,
+    requestOtp,
+    loginWithOtp,
     logout,
     getToken,
     fetchPermissions,
