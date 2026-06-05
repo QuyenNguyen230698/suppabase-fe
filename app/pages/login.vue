@@ -381,6 +381,7 @@ async function verifyOtpCode() {
   font-size: 56px; font-weight: 700; line-height: 1.05;
   color: #fff; margin: auto 0 0; letter-spacing: -0.01em;
   white-space: pre-line;
+  letter-spacing: 0.05em;
 }
 .art-sub {
   color: rgba(255,255,255,0.82);
