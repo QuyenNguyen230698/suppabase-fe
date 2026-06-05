@@ -46,6 +46,7 @@
               <option value="document">document</option>
               <option value="writing">writing</option>
               <option value="coding">coding</option>
+              <option value="pro">pro (Pro Plan — gated)</option>
             </select>
           </div>
           <div>
@@ -212,11 +213,12 @@
             <label class="lbl">Khoá model (tuỳ chọn)</label>
             <select v-model="form.model" class="select">
               <option :value="null">— Để người dùng tự chọn —</option>
+              <option value="__peb__">Pro Plan (PEB) — chỉ user có quyền pro_plan</option>
               <option v-for="m in availableModels" :key="m.name" :value="m.name">
                 {{ m.label || m.name }}{{ m.role === 'code' ? ' · code' : m.role === 'reasoning' ? ' · reasoning' : '' }}
               </option>
             </select>
-            <div class="hint">Nếu chọn, người dùng dùng trợ lý này sẽ bị khoá đúng model đó (không đổi được).</div>
+            <div class="hint">Nếu chọn, người dùng dùng trợ lý này sẽ bị khoá đúng model đó (không đổi được). Chọn “Pro Plan (PEB)” cho trợ lý Pro — sẽ tự gate theo quyền pro_plan.</div>
           </div>
           <div class="span-2">
             <label class="check-row">
