@@ -50,6 +50,26 @@ function swatchOf(it) { return normalizeItem(it).swatch }
     <div class="mt-foot">AN CƯỜNG LAMINATE KINGDOM TREND COLLECTION</div>
   </div>
 
+  <!-- VIDEO page. At rest, a single seamless overlay across the whole spread
+       (.book-video in catalogue/index.vue) covers this leaf. DURING a flip the
+       overlay is hidden, so this in-leaf <video> shows the clip on the turning
+       paper instead of a black face — it fills the leaf like an image page, so
+       the page-turn looks exactly like the other pages (no mirror, no split). -->
+  <div v-else-if="pg.kind === 'video'" class="page page-video" :data-side="pg.videoSide">
+    <video
+      v-if="pg.video?.src"
+      class="page-video-el"
+      :class="pg.videoSide === 'right' ? 'half-right' : 'half-left'"
+      :src="pg.video.src"
+      autoplay muted loop playsinline preload="auto"
+      disablepictureinpicture
+    />
+    <div v-else class="video-ph">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      <div class="ph-hint">Chưa có link video</div>
+    </div>
+  </div>
+
   <!-- IMAGE page (real CDN) -->
   <div v-else-if="pg.src" class="page">
     <img :src="pg.src" :alt="`Trang ${pg.num}`" class="page-img" draggable="false" loading="lazy" />
@@ -73,6 +93,20 @@ function swatchOf(it) { return normalizeItem(it).swatch }
 }
 .page-blank { background: var(--bg-elev); }
 .page-img { width: 100%; height: 100%; object-fit: cover; display: block; background: #fff; }
+
+/* ── Video spread ──
+   At rest, the parent's full-spread overlay (.book-video) covers this leaf with
+   the seamless clip. This in-leaf <video> only shows DURING a flip; it fills the
+   leaf exactly like an image page (object-fit:cover) so the page-turn animates
+   identically to every other page — no mirror, no split. */
+.page-video { position: relative; background: #000; overflow: hidden; }
+/* 200%-wide so each leaf shows exactly one half of the clip (left → [0,50%],
+   right → [50,100%]) — never the whole clip, so the two leaves don't duplicate.
+   The back face is un-mirrored in catalogue/index.vue. */
+.page-video-el { position: absolute; top: 0; height: 100%; width: 200%; max-width: none; object-fit: cover; display: block; }
+.page-video-el.half-left  { left: 0; }
+.page-video-el.half-right { left: -100%; }
+.video-ph { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #6b6b73; }
 
 /* Placeholder */
 .page-ph { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;

@@ -14,7 +14,25 @@ const store = useCatalogueStore()
 const cat = computed(() => store.get(props.catId))
 const page = computed(() => props.pageIndex >= 0 ? cat.value.realPages[props.pageIndex] : null)
 const isMaterial = computed(() => page.value && typeof page.value === 'object' && page.value.material)
-const isImage = computed(() => props.pageIndex >= 0 && !isMaterial.value)
+const isVideo = computed(() => page.value && typeof page.value === 'object' && (page.value.video || page.value.videoCont))
+const isImage = computed(() => props.pageIndex >= 0 && !isMaterial.value && !isVideo.value)
+
+/* ── Video page ──
+   The editor always targets the HEAD entry (the even page). If the user lands
+   on the tail (videoCont), we resolve back to the head one slot earlier. */
+const videoHeadIndex = computed(() =>
+  page.value?.videoCont ? props.pageIndex - 1 : props.pageIndex
+)
+const videoHead = computed(() => cat.value.realPages[videoHeadIndex.value])
+const DEFAULT_VIDEO = 'https://api-gateway.tranduc.com/api/video/tdc-video.mp4'
+const videoSrc = computed({
+  get: () => videoHead.value?.video?.src || '',
+  set: (v) => {
+    const h = videoHead.value
+    if (h && h.video) { h.video.src = v; store.persist() }
+  },
+})
+function useDefaultVideo() { videoSrc.value = DEFAULT_VIDEO }
 
 function commit() { store.persist() }
 
@@ -95,6 +113,25 @@ function removeTitleLine(i) { cat.value.cover.titleLines.splice(i, 1); commit() 
       <h2 class="pe-h">Trang {{ pageIndex + 1 }} · Ảnh</h2>
       <p class="pe-hint">Trang hiển thị một ảnh (URL CDN An Cường hoặc ảnh upload). Để trống = placeholder.</p>
       <ImageField v-model="imageSrc" label="Ảnh trang" ratio="3 / 4" />
+    </template>
+
+    <!-- ── Video page (2-page spread) ── -->
+    <template v-else-if="isVideo">
+      <h2 class="pe-h">Trang {{ videoHeadIndex + 1 }}–{{ videoHeadIndex + 2 }} · Video</h2>
+      <p class="pe-hint">
+        Video trải <strong>2 trang</strong> (bắt đầu từ trang chẵn → trang lẻ kế tiếp,
+        ví dụ 2–3, 4–5). Trang chẵn hiện nửa trái, trang lẻ hiện nửa phải. Tự phát, tắt tiếng, lặp lại.
+      </p>
+      <label class="pe-f">
+        <span>Link video (MP4)</span>
+        <input v-model="videoSrc" type="url" :placeholder="DEFAULT_VIDEO" @change="commit" />
+      </label>
+      <button class="pe-add" style="align-self:flex-start" @click="useDefaultVideo">Dùng video mẫu TDC</button>
+
+      <div v-if="videoSrc" class="pe-video-preview">
+        <video :src="videoSrc" autoplay muted loop playsinline controls />
+      </div>
+      <p v-else class="pe-empty">Chưa có link. Dán link MP4 hoặc bấm “Dùng video mẫu TDC”.</p>
     </template>
 
     <!-- ── Material page ── -->
@@ -199,4 +236,8 @@ function removeTitleLine(i) { cat.value.cover.titleLines.splice(i, 1); commit() 
 .pe-mini.danger:hover { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 40%, transparent); }
 .pe-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--fg-dim); }
 .pe-check input { accent-color: var(--accent); }
+
+/* Video preview */
+.pe-video-preview { border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: #000; }
+.pe-video-preview video { display: block; width: 100%; max-height: 320px; object-fit: contain; background: #000; }
 </style>

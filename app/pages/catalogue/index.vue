@@ -71,6 +71,43 @@ function prev() { if (turned.value > 0 && animating.value === -1) { startTurn(tu
 function goTo(i) { if (animating.value === -1) turned.value = Math.max(0, Math.min(maxTurn.value, i)) }
 function pageAt(i) { return pages.value[i] || null }
 
+/* A two-page video is drawn as ONE element overlaying the whole spread (so it's
+   truly seamless and never split/mirrored by the 3D page flip). The current
+   spread t shows leaves [2t (left), 2t+1 (right)]; if the left leaf is a video
+   head, that spread has a video.
+
+   We render ONE persistent <video> per video-spread (kept mounted, src never
+   reassigned) and only toggle its visibility. That way a clip keeps playing in
+   the background and is NOT reloaded/reset when you leave and come back — it
+   just resumes wherever it is now. */
+const spreadVideos = computed(() => {
+  const out = []
+  const p = pages.value
+  for (let t = 0; t < totalSpreads.value; t++) {
+    const left = p[2 * t]
+    const right = p[2 * t + 1]
+    if (left && left.kind === 'video' && left.videoSide === 'left' && left.video?.src
+        && right && right.kind === 'video') {
+      out.push({ spread: t, src: left.video.src })
+    }
+  }
+  return out
+})
+// Visible only for the spread we're resting on (hidden mid-flip so the page-turn
+// shows paper). The element stays mounted regardless, so playback never resets.
+function videoVisible(t) { return t === turned.value && animating.value === -1 }
+
+// Keep refs to the mounted <video> elements (keyed by spread index) so we can
+// resume playback when one becomes visible again — currentTime is preserved by
+// the browser across display:none, so it continues where it left off, never
+// restarting. We never call pause()/load(), so the clip plays continuously.
+const videoEls = new Map()
+function setVideoRef(t, el) { if (el) videoEls.set(t, el); else videoEls.delete(t) }
+watch([() => turned.value, () => animating.value], () => {
+  const el = videoEls.get(turned.value)
+  if (el && videoVisible(turned.value)) el.play?.().catch(() => {})
+})
+
 /* ── Chapter tabs ("Xem nhanh") — from the catalogue config. Each chapter
    has a 1-based page; with the leading blank leaf, page P lives at leaf index
    P, shown on spread floor(P/2). ── */
@@ -225,6 +262,24 @@ watch(activeId, () => { turned.value = 0; closePopup() })
           </div>
 
           <div class="spine" :class="{ active: animating !== -1 }" />
+
+          <!-- Two-page video overlays: one seamless <video> per video-spread,
+               spanning the whole spread. Each stays mounted with a fixed src so
+               it keeps playing in the background and never reloads/resets when
+               you flip away and back — only its visibility toggles. -->
+          <div
+            v-for="v in spreadVideos"
+            :key="'vid-' + v.spread"
+            v-show="videoVisible(v.spread)"
+            class="book-video"
+          >
+            <video
+              :ref="el => setVideoRef(v.spread, el)"
+              :src="v.src"
+              autoplay muted loop playsinline preload="auto"
+              disablepictureinpicture
+            />
+          </div>
         </div>
       </div>
 
@@ -363,6 +418,22 @@ watch(activeId, () => { turned.value = 0; closePopup() })
 .sheet.flipped { transform: rotateY(-180deg); }
 .sheet-face { position: absolute; inset: 0; backface-visibility: hidden; overflow: hidden; }
 .sheet-back { transform: rotateY(180deg); }
+
+/* Two-page video overlay — one element spanning the full spread, so the clip is
+   perfectly seamless and never mirrored/split by the 3D page flip. */
+.book-video {
+  position: absolute; inset: 0;
+  z-index: 30;                /* above every resting page face */
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.book-video video {
+  width: 100%; height: 100%;
+  max-width: none;
+  object-fit: cover; display: block;
+  background: #000;
+}
 .sheet-shade { position: absolute; inset: 0; pointer-events: none; transition: opacity var(--flip-ms,700ms) ease; }
 .shade-front { background: linear-gradient(270deg, rgba(0,0,0,.28), rgba(0,0,0,0) 60%); opacity: 0; }
 .shade-back { background: linear-gradient(90deg, rgba(0,0,0,.28), rgba(0,0,0,0) 60%); opacity: 0; }

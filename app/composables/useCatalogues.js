@@ -4,6 +4,11 @@
      • string URL        → an image page (An Cường Publitas CDN, or any image)
      • { material: {...} } → a MATERIAL page: a self-built HTML grid of swatch
        cells, each with a (+) hotspot that opens the product detail popup.
+     • { video: { src } } → a VIDEO that spans TWO pages (a full spread). It must
+       start on an EVEN page (e.g. 2→3, 4→5) so it fills the left+right of one
+       viewing spread. The head entry holds { video:{src} }; the very next entry
+       is its tail { videoCont:true } (auto-managed — never edited directly). The
+       video renders across the spine: even page = left half, odd page = right.
 
    material = {
      theme, sub?,                            // chapter label + sub-group
@@ -169,13 +174,49 @@ export function useCatalogueStore() {
     if (c.pageCount != null) c.pageCount = Math.max(c.pageCount, c.realPages.length)
     persist()
   }
+  /* Insert a two-page video so its FIRST page is even (2,4,6…).
+     Page number = index+1, so an even start page means an ODD insert index.
+     We insert the head at the requested even page, padding with a blank image
+     beforehand if the slot would land on an odd page. Returns the head index. */
+  function addVideoSpread(id, src = '') {
+    const c = get(id)
+    let at = c.realPages.length
+    // Head must sit at an odd index (= even page number). If the append point
+    // is at an even index (odd page), push a blank filler page first so the
+    // video starts on the next (even) page.
+    if (at % 2 === 0) { c.realPages.push(blankImagePage()); at = c.realPages.length }
+    c.realPages.push({ video: { src } }, { videoCont: true })
+    if (c.pageCount != null) c.pageCount = Math.max(c.pageCount, c.realPages.length)
+    persist()
+    return at
+  }
+  /* Is realPages[idx] part of a video pair? Returns 'head' | 'tail' | null. */
+  function videoRole(id, idx) {
+    const p = get(id).realPages[idx]
+    if (p && typeof p === 'object' && p.video) return 'head'
+    if (p && typeof p === 'object' && p.videoCont) return 'tail'
+    return null
+  }
   function removePage(id, idx) {
     const c = get(id)
-    c.realPages.splice(idx, 1)
+    // Removing either half of a video removes BOTH halves so we never leave an
+    // orphan head/tail.
+    const role = videoRole(id, idx)
+    if (role === 'head') c.realPages.splice(idx, 2)
+    else if (role === 'tail') c.realPages.splice(idx - 1, 2)
+    else c.realPages.splice(idx, 1)
     persist()
   }
   function duplicatePage(id, idx) {
     const c = get(id)
+    const role = videoRole(id, idx)
+    if (role) {
+      // Duplicate the whole video pair as a new pair (kept on an even page by
+      // appending — caller's index parity is preserved since pairs are even).
+      const head = role === 'head' ? c.realPages[idx] : c.realPages[idx - 1]
+      addVideoSpread(id, head.video?.src || '')
+      return
+    }
     c.realPages.splice(idx + 1, 0, deepClone(c.realPages[idx]))
     if (c.pageCount != null) c.pageCount = Math.max(c.pageCount, c.realPages.length)
     persist()
@@ -204,7 +245,7 @@ export function useCatalogueStore() {
 
   _store = {
     list, catalogues, get, save, resetCatalogue, resetAll,
-    addPage, removePage, duplicatePage, movePage, updatePage,
+    addPage, addVideoSpread, videoRole, removePage, duplicatePage, movePage, updatePage,
     exportJson, importJson, persist, DEFAULTS,
   }
   return _store
@@ -259,6 +300,15 @@ export function buildPages(c) {
     const entry = c.realPages[i]
     if (entry && typeof entry === 'object' && entry.material) {
       leaves.push({ num: i + 1, kind: 'material', material: entry.material })
+    } else if (entry && typeof entry === 'object' && entry.video) {
+      // Head of a two-page video → the EVEN (left) half of the spread.
+      leaves.push({ num: i + 1, kind: 'video', video: entry.video, videoSide: 'left' })
+    } else if (entry && typeof entry === 'object' && entry.videoCont) {
+      // Tail of a two-page video → the ODD (right) half. Carry the head's src
+      // so the right leaf can render the same clip, shifted to its half.
+      const head = c.realPages[i - 1]
+      const video = (head && head.video) ? head.video : { src: '' }
+      leaves.push({ num: i + 1, kind: 'video', video, videoSide: 'right' })
     } else {
       const src = (typeof entry === 'string' ? entry : '') || ''
       leaves.push({ num: i + 1, kind: 'image', src, placeholder: !src })

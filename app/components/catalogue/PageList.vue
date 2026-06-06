@@ -17,8 +17,17 @@ const pages = computed(() => cat.value.realPages)
 
 function kindOf(p) {
   if (p && typeof p === 'object' && p.material) return 'material'
+  if (p && typeof p === 'object' && p.video) return 'video'
+  if (p && typeof p === 'object' && p.videoCont) return 'video-cont'
   if (typeof p === 'string' && p) return 'image'
   return 'empty'
+}
+function kindLabel(k) {
+  return k === 'material' ? 'Vật liệu'
+    : k === 'image' ? 'Ảnh'
+    : k === 'video' ? 'Video (2 trang)'
+    : k === 'video-cont' ? 'Video (tiếp)'
+    : 'Trống'
 }
 function thumbSrc(p) {
   if (typeof p === 'string') return p
@@ -27,7 +36,16 @@ function thumbSrc(p) {
 }
 
 const addOpen = ref(false)
-function add(kind) { store.addPage(props.catId, kind); addOpen.value = false; emit('select', pages.value.length - 1) }
+function add(kind) {
+  addOpen.value = false
+  if (kind === 'video') {
+    const at = store.addVideoSpread(props.catId, '')
+    emit('select', at)
+    return
+  }
+  store.addPage(props.catId, kind)
+  emit('select', pages.value.length - 1)
+}
 function remove(i) {
   store.removePage(props.catId, i)
   if (props.selected >= pages.value.length) emit('select', pages.value.length - 1)
@@ -64,9 +82,9 @@ function onDragEnd() { dragIndex.value = -1; overIndex.value = -1 }
         v-for="(p, i) in pages"
         :key="i"
         class="pl-row"
-        :class="{ active: selected === i, over: overIndex === i, dragging: dragIndex === i }"
-        draggable="true"
-        @click="emit('select', i)"
+        :class="{ active: selected === i, over: overIndex === i, dragging: dragIndex === i, 'is-cont': kindOf(p) === 'video-cont' }"
+        :draggable="kindOf(p) !== 'video' && kindOf(p) !== 'video-cont'"
+        @click="emit('select', kindOf(p) === 'video-cont' ? i - 1 : i)"
         @dragstart="onDragStart(i, $event)"
         @dragover="onDragOver(i, $event)"
         @drop="onDrop(i)"
@@ -78,11 +96,14 @@ function onDragEnd() { dragIndex.value = -1; overIndex.value = -1 }
           <span v-else-if="kindOf(p) === 'material'" class="pl-thumb-ic">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
           </span>
+          <span v-else-if="kindOf(p) === 'video' || kindOf(p) === 'video-cont'" class="pl-thumb-ic">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          </span>
           <span v-else class="pl-thumb-ic dim">—</span>
         </span>
         <span class="pl-info">
           <span class="pl-num">Trang {{ i + 1 }}</span>
-          <span class="pl-kind" :data-kind="kindOf(p)">{{ kindOf(p) === 'material' ? 'Vật liệu' : kindOf(p) === 'image' ? 'Ảnh' : 'Trống' }}</span>
+          <span class="pl-kind" :data-kind="kindOf(p)">{{ kindLabel(kindOf(p)) }}</span>
         </span>
         <span class="pl-row-tools">
           <button class="pl-tool" @click.stop="duplicate(i)" title="Nhân bản">⧉</button>
@@ -99,6 +120,7 @@ function onDragEnd() { dragIndex.value = -1; overIndex.value = -1 }
         <div v-if="addOpen" class="pl-add-menu">
           <button @click="add('image')">Trang ảnh</button>
           <button @click="add('material')">Trang vật liệu</button>
+          <button @click="add('video')">Video (2 trang)</button>
         </div>
       </transition>
     </div>
@@ -128,7 +150,12 @@ function onDragEnd() { dragIndex.value = -1; overIndex.value = -1 }
 .pl-kind { font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
 .pl-kind[data-kind="material"] { color: #7a9a8a; }
 .pl-kind[data-kind="image"] { color: var(--fg-mute); }
+.pl-kind[data-kind="video"] { color: var(--accent); }
+.pl-kind[data-kind="video-cont"] { color: var(--fg-faint); }
 .pl-kind[data-kind="empty"] { color: var(--fg-faint); }
+/* The continuation half is auto-managed — show it muted, no drag handle. */
+.pl-row.is-cont { opacity: .6; }
+.pl-row.is-cont .pl-grip { visibility: hidden; }
 .pl-row-tools { display: flex; gap: 3px; opacity: 0; transition: opacity .12s; }
 .pl-row:hover .pl-row-tools, .pl-row.active .pl-row-tools { opacity: 1; }
 .pl-tool { appearance: none; cursor: pointer; width: 24px; height: 24px; border-radius: 6px; background: transparent; border: 1px solid var(--line-2); color: var(--fg-mute); font-size: 13px; line-height: 1; }

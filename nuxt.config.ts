@@ -37,7 +37,9 @@ const cspDirectives = [
   // (no server is listening on those schemes unless we add one).
   `connect-src 'self' ${API_BASE} ws: wss:`,
   "worker-src 'self' blob:",
-  "media-src 'self'",
+  // Video/audio from self, blob: (uploads/preview), and any https CDN — the
+  // catalogue video page accepts arbitrary MP4 links (e.g. api-gateway.tranduc.com).
+  "media-src 'self' blob: https:",
   // PDF/file preview opens the document inside an <iframe> sourced from a
   // `blob:` URL (created from the fetched bytes) or directly from R2's
   // public CDN — both must be allow-listed or CSP blocks the frame.
