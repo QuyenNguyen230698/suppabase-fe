@@ -71,7 +71,7 @@ function swatchOf(it) { return normalizeItem(it).swatch }
   background: #fff; overflow: hidden; position: relative;
   container-type: inline-size;
 }
-.page-blank { background: #fff; }
+.page-blank { background: var(--bg-elev); }
 .page-img { width: 100%; height: 100%; object-fit: cover; display: block; background: #fff; }
 
 /* Placeholder */
