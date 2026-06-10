@@ -109,6 +109,14 @@
           </div>
         </div>
 
+        <!-- Conversation-switch loader: a small centered spinner shown over the
+             thread while the new conversation's messages load. -->
+        <Transition name="skel-fade">
+          <div v-if="convSwitching" class="thread-loading" aria-live="polite" aria-label="Loading">
+            <span class="conv-spinner"></span>
+          </div>
+        </Transition>
+
         <!-- Artifact panel -->
         <ArtifactPanel v-model="artifactOpen" :artifact="artifact" />
       </div>
@@ -214,7 +222,7 @@
           <textarea
             ref="textareaEl"
             v-model="input"
-            @keydown.enter.exact.prevent="onEnter"
+            @keydown.enter.exact="onEnter"
             @keydown.enter.shift.exact="input += '\n'"
             @keydown.tab.prevent="onTab"
             @keydown.down.prevent="onArrowDown"
@@ -766,8 +774,29 @@ function onInput() {
 }
 
 function onEnter(e) {
+  // IME guard: while an input method (Vietnamese telex/VNI, Chinese, Japanese…)
+  // is still composing the final character, v-model hasn't committed it yet.
+  // Sending here drops that last char (only visible when there's no trailing
+  // space). Let this Enter finish composition (don't preventDefault, don't send).
+  if (e?.isComposing || e?.keyCode === 229) return
+  // Not composing → this Enter is a real submit; stop the newline it'd insert.
+  e?.preventDefault?.()
+
+  // Vietnamese IMEs (Unikey/EVKey) often fire the Enter `keydown` in the SAME
+  // tick that they commit the last character — so at this instant BOTH input.value
+  // AND the textarea's DOM value can still be missing that char. Defer the actual
+  // submit by one frame so the pending compositionend/input event flushes first,
+  // then read the live DOM value. This reliably captures the final character.
+  requestAnimationFrame(() => submitFromComposer())
+}
+
+// Read the freshest composer text (live DOM, not the possibly-lagging v-model),
+// sync it back, then run slash handling / send.
+function submitFromComposer() {
+  if (textareaEl.value && textareaEl.value.value !== input.value) {
+    input.value = textareaEl.value.value
+  }
   if (slashSuggestions.value && slashSuggestions.value.length) {
-    e.preventDefault()
     applySlash(slashSuggestions.value[slashIndex.value])
     return
   }
@@ -1277,7 +1306,29 @@ useShortcuts({
   flex: 1; min-height: 0;
   display: flex;
   overflow: hidden;
+  position: relative;   /* anchor for .thread-loading overlay */
 }
+
+/* ── Conversation-switch loader (small centered spinner) ── */
+.thread-loading {
+  position: absolute; inset: 0;
+  z-index: 5;
+  display: grid; place-items: center;
+  pointer-events: none;
+  background: var(--bg);
+}
+.conv-spinner {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 2.5px solid var(--line-2, rgba(255,255,255,0.12));
+  border-top-color: var(--accent, #5b9dff);
+  animation: spin .7s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .conv-spinner { animation-duration: 1.4s; }
+}
+.skel-fade-enter-active, .skel-fade-leave-active { transition: opacity .18s ease; }
+.skel-fade-enter-from, .skel-fade-leave-to { opacity: 0; }
 
 .thread {
   flex: 1; min-width: 0;
@@ -1289,10 +1340,10 @@ useShortcuts({
   position: relative;
   transition: opacity 80ms ease;
 }
-/* While the page swaps from one conversation to another, fade out so the
-   tear-down isn't a hard blink. The 80ms timeout in loadConversation() pairs
-   with this duration. */
-.thread[data-switching="true"] { opacity: 0; }
+/* While swapping conversations the .thread-loading spinner overlay (opaque --bg)
+   covers the thread, so a gentle dim here is enough — the overlay fades out as
+   the real messages fade in, avoiding the hard blink/jump. */
+.thread[data-switching="true"] { opacity: 0.35; }
 
 /* "Jump to latest" button — pinned just above the composer, centred over it.
    .composer-wrap is position:relative, so this floats right on top of the input

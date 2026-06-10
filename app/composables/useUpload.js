@@ -33,36 +33,58 @@ export function useUpload() {
   }
 
   async function pollStatus(documentId) {
+    // Terminal states the worker writes to documents.status. 'quarantined' is a
+    // dead-end too (router couldn't classify) — must stop polling on it.
+    const TERMINAL = new Set(['ready', 'error', 'quarantined'])
+    // Hard ceiling so a stuck/unreachable backend can never leave the chip
+    // "pending" forever: ~2 minutes (60 polls × 2s). A few transient HTTP/network
+    // errors are tolerated before giving up.
+    const MAX_POLLS = 60
+    const MAX_ERRORS = 5
+
     return new Promise((resolve) => {
+      let polls = 0
+      let errors = 0
+      const finish = (status, error_msg) => {
+        clearInterval(interval)
+        const existing = chatStore.attachedDocuments.find((d) => d.document_id === documentId)
+        if (existing) existing.status = status
+        try {
+          const { show } = useToast()
+          const name = existing?.name || ''
+          if (status === 'ready') show?.(`Document "${name}" is ready.`, 'success', 3500)
+          else show?.(`Document "${name}" failed: ${error_msg || 'unknown error'}`, 'error', 3500)
+        } catch {}
+        resolve({ status, error_msg })
+      }
+
       const interval = setInterval(async () => {
+        polls++
+        if (polls > MAX_POLLS) { finish('error', 'Timed out waiting for processing'); return }
         try {
           const res = await fetch(`${config.public.apiBase}/api/documents/${documentId}`, {
             headers: { Authorization: `Bearer ${auth.getToken()}` },
-          });
-          const doc = await res.json();
+          })
+          if (!res.ok) {
+            // HTTP error (404/401/5xx). Retry a few times, then give up — never
+            // loop forever on a body that has no `status` field.
+            if (++errors >= MAX_ERRORS) finish('error', `Server error ${res.status}`)
+            return
+          }
+          errors = 0
+          const doc = await res.json()
 
-          // Update status in attachedDocuments
-          const existing = chatStore.attachedDocuments.find((d) => d.document_id === documentId);
-          if (existing) existing.status = doc.status;
+          const existing = chatStore.attachedDocuments.find((d) => d.document_id === documentId)
+          if (existing && doc.status) existing.status = doc.status
 
-          if (doc.status === 'ready' || doc.status === 'error') {
-            clearInterval(interval);
-            // Surface a toast so the user knows when they can send safely.
-            try {
-              const { show } = useToast()
-              const msg = doc.status === 'ready'
-                ? `Document "${existing?.name || ''}" is ready.`
-                : `Document "${existing?.name || ''}" failed: ${doc.error_msg || 'unknown error'}`
-              show?.(msg, doc.status === 'ready' ? 'success' : 'error', 3500)
-            } catch {}
-            resolve(doc);
+          if (TERMINAL.has(doc.status)) {
+            finish(doc.status === 'quarantined' ? 'error' : doc.status, doc.error_msg)
           }
         } catch {
-          clearInterval(interval);
-          resolve({ status: 'error' });
+          if (++errors >= MAX_ERRORS) finish('error', 'Network error')
         }
-      }, 2000);
-    });
+      }, 2000)
+    })
   }
 
   return { uploadFile };

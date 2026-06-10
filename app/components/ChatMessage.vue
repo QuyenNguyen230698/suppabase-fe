@@ -69,20 +69,9 @@
 
       <!-- AI: thinking block (collapsible) + rendered markdown -->
       <template v-else>
-        <!-- Thinking block -->
-        <div v-if="message.thinking" class="thinking-block" :class="{ open: thinkingOpen }">
-          <button class="thinking-toggle" @click="thinkingOpen = !thinkingOpen">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2a8 8 0 0 1 8 8c0 3-1.5 5.5-4 7l-1 5H9l-1-5C5.5 15.5 4 13 4 10a8 8 0 0 1 8-8z"/>
-              <path d="M12 6v4l2 2"/>
-            </svg>
-            <span>Thinking</span>
-            <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <div class="thinking-body">
-            <div class="thinking-content" v-html="renderedThinking"></div>
-          </div>
-        </div>
+        <!-- Thinking output is intentionally NOT rendered: the model still
+             reasons (we strip <think> from content + capture thinking_delta),
+             but the user only sees the final answer. -->
 
         <!-- Streaming pre-content indicator: rotating playful "thinking…" verbs.
              Inlined directly (instead of importing LoadingPulse) to dodge a
@@ -188,7 +177,6 @@ const props = defineProps({ message: Object, isStreaming: Boolean, isLast: Boole
 const emit = defineEmits(['retry', 'open-artifact'])
 
 const copied = ref(false)
-const thinkingOpen = ref(false)
 const previewOpen = ref(false)
 const previewFile = ref(null)
 const msgExpanded = ref(false)
@@ -377,18 +365,23 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-// Strip any <think>...</think> blocks that leaked into content (inline CoT
-// from DeepSeek-R1 / Qwen models that the backend didn't fully split yet).
-// The full closed block is moved to message.thinking if not already set.
+// Strip any <think>…</think> chain-of-thought that leaked into content (inline
+// CoT from DeepSeek-R1 / Qwen that the backend didn't fully split yet, or that
+// got persisted into older messages). Thinking is NEVER shown in the layout —
+// the reasoning is captured into message.thinking (unused for display) and
+// removed from the visible content. Handles: closed blocks, an open/unclosed
+// block (streaming or truncated), and case/whitespace variants of the tags.
 function stripThinkTags(content, message) {
-  if (!content || !content.includes('<think>')) return content
-  // Replace closed blocks
-  let stripped = content.replace(/<think>([\s\S]*?)<\/think>/g, (_, inner) => {
+  if (!content) return content
+  const OPEN = /<\s*think\s*>/i
+  if (!OPEN.test(content)) return content
+  // 1) Remove every closed <think>…</think> block (capture into thinking once).
+  let stripped = content.replace(/<\s*think\s*>([\s\S]*?)<\s*\/\s*think\s*>/gi, (_, inner) => {
     if (!message.thinking) message.thinking = inner.trim()
     return ''
   })
-  // Hide an open (still-streaming) <think> block — remove from visible content
-  stripped = stripped.replace(/<think>[\s\S]*$/, '')
+  // 2) Remove a still-open <think> (no closing tag yet / truncated) to EOL.
+  stripped = stripped.replace(/<\s*think\s*>[\s\S]*$/i, '')
   return stripped.trimStart()
 }
 
@@ -439,11 +432,6 @@ const hasLargeCodeBlock = computed(() => {
     if (m[1].split('\n').length >= 12) return true
   }
   return false
-})
-
-const renderedThinking = computed(() => {
-  if (!props.message.thinking) return ''
-  return sanitizeHtml(marked(props.message.thinking))
 })
 
 const streamingContent = computed(() => {
@@ -762,75 +750,8 @@ async function rate(value) {
   object-fit: cover;
 }
 
-/* Thinking block */
-/* Thinking block — compact pill that sits inline at the top of the message
-   instead of a full-width block. Click to expand details below. Compact form
-   keeps message height stable so the reply content doesn't jump when the
-   model finishes "thinking" and starts emitting real content. */
-.thinking-block {
-  margin-bottom: 8px;
-  display: inline-flex;
-  flex-direction: column;
-  align-self: flex-start;
-  border: 1px solid var(--line-2);
-  border-radius: 999px;
-  overflow: hidden;
-  background: rgba(255,255,255,0.02);
-  max-width: 100%;
-  transition: border-radius 160ms ease;
-}
-.thinking-block.open {
-  border-radius: 10px;
-  align-self: stretch;
-}
-.thinking-toggle {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 10px 3px 8px;
-  background: transparent;
-  border: 0;
-  color: var(--fg-mute);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  cursor: pointer;
-  text-align: left;
-  transition: color .12s, background .12s;
-  white-space: nowrap;
-}
-.thinking-toggle:hover:not(:disabled) {
-  color: var(--fg);
-  background: rgba(255,255,255,0.03);
-}
-.thinking-toggle:disabled { cursor: default; }
-.thinking-toggle svg:first-child { color: color-mix(in oklab, var(--accent) 70%, transparent); flex-shrink: 0; }
-.thinking-toggle span { flex: 1; }
-.chevron {
-  transition: transform .2s;
-  flex-shrink: 0;
-}
-.thinking-block.open .chevron { transform: rotate(180deg); }
-
-.thinking-body {
-  display: none;
-  padding: 10px 14px;
-  border-top: 1px solid var(--line-2);
-}
-.thinking-block.open .thinking-body { display: block; }
-
-.thinking-content {
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--fg-dim);
-  font-style: italic;
-}
-.thinking-content :deep(p) { margin: 0 0 8px; }
-.thinking-content :deep(p:last-child) { margin-bottom: 0; }
-
-/* Pulse animation when thinking is in progress */
-.thinking-pulse .thinking-toggle { animation: thinking-fade 1.5s ease-in-out infinite; }
-@keyframes thinking-fade {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
-}
+/* Thinking output is not rendered (see template). CSS for the old thinking
+   block was removed; reasoning is captured but never shown. */
 
 /* Crossfade between the loading pulse and the streaming markdown body.
    120ms is short enough to feel snappy but long enough that the first
@@ -1226,10 +1147,6 @@ async function rate(value) {
   }
   /* Push token/model info to new line on small screens */
   .msg-tokens, .msg-model { margin-left: 0; }
-
-  /* Thinking block full-width on mobile */
-  .thinking-block { align-self: stretch; }
-  .thinking-toggle { padding: 6px 10px 6px 8px; }
 
   /* Heading sizes */
   .ai-content :deep(h1) { font-size: 16px; }
